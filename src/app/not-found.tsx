@@ -10,7 +10,7 @@ export default function NotFound() {
       <EmptyState
         title="We couldn't find that page"
         action={
-          <Link href="/" className={buttons.primary}>
+          <Link href="/board" className={buttons.primary}>
             Back to the board
           </Link>
         }

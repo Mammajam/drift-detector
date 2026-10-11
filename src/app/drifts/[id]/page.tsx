@@ -33,7 +33,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   return (
     <>
       <nav aria-label="Breadcrumb" className={styles.crumbs}>
-        <Link href="/">Board</Link>
+        <Link href="/board">Board</Link>
         <span aria-hidden="true">/</span>
         <Link href={`/report/${route.id}`}>{route.path}</Link>
         <span aria-hidden="true">/</span>

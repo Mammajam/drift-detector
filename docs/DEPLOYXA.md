@@ -10,6 +10,9 @@ account and secrets). Deployxa's exact UI wording may differ from what is writte
 > Migrations run automatically on server start in production (`src/instrumentation.ts`); set `RUN_MIGRATIONS_ON_START=0` to disable.
 > Preview/app hosts end in `.deployxa.online`, so `PREVIEW_HOST_SUFFIXES=.deployxa.online`.
 
+> **Routes:** `/` is the landing page (no database needed), `/board` the project board, `/inspector` the overlay inspector,
+> `/drifts/[id]` tickets and `/report/[routeId]` sign-off reports.
+
 ## 1. Push the repo
 ```bash
 git init && git add -A && git commit -m "chore: scaffold"

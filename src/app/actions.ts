@@ -30,7 +30,9 @@ export async function signIn(_previous: FormState, formData: FormData): Promise<
   if (process.env.APP_PASSCODE && !passcodeMatches(passcode)) return failure("That passcode isn't right.", { name });
 
   await startSession(name);
-  redirect(safeNextPath(String(formData.get("next") ?? "")));
+  // Signing in with no particular destination lands on the board, not the marketing page.
+  const target = safeNextPath(String(formData.get("next") ?? ""));
+  redirect(target === "/" ? "/board" : target);
 }
 
 export async function signOut() {
@@ -64,7 +66,7 @@ export async function signOffAction(_previous: FormState, formData: FormData): P
 }
 
 export async function loadDemoData() {
-  await requireSession("/");
+  await requireSession("/board");
   await seedDemo(getDb(), projectName());
   revalidatePath("/", "layout");
 }
