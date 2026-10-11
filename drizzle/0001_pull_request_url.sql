@@ -1,0 +1,1 @@
+ALTER TABLE "captures" ADD COLUMN "pull_request_url" text;

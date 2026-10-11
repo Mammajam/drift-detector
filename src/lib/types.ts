@@ -16,6 +16,8 @@ export type Drift = {
   token?: string;
   bbox: BBox;
   status: DriftStatus;
+  /** Database id of the ticket page (/drifts/[id]); set once the drift is stored. */
+  ticketId?: string;
 };
 
 export type Capture = {
@@ -24,6 +26,8 @@ export type Capture = {
   route: string;
   previewUrl: string;
   commitSha: string;
+  /** GitHub pull request the preview build belongs to, when known. */
+  pullRequestUrl?: string;
   breakpoint: Breakpoint;
   theme: CaptureTheme;
   /** Pixel size of the captured frame. */
@@ -34,3 +38,20 @@ export type Capture = {
   /** PNG data URLs of the Figma frame and the build screenshot; absent for sample data. */
   images?: { design: string; build: string };
 };
+
+/** One preview build of a route: every capture taken from the same preview URL. */
+export type BuildSummary = {
+  previewUrl: string;
+  commitSha: string;
+  pullRequestUrl?: string;
+  createdAt: string;
+  captureCount: number;
+  openDrifts: number;
+  fixedDrifts: number;
+  wontFixDrifts: number;
+  /** Worst drift score across the build's captures, 0–100. */
+  score: number;
+  signedOffBy?: string;
+};
+
+export type BoardRoute = { id: string; path: string; builds: BuildSummary[] };

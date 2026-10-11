@@ -52,6 +52,7 @@ export const captures = pgTable(
       .references(() => routes.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
     commitSha: text("commit_sha").notNull().default(""),
+    pullRequestUrl: text("pull_request_url"),
     theme: captureTheme("theme").notNull(),
     breakpoint: integer("breakpoint").notNull(),
     frameWidth: integer("frame_width").notNull(),

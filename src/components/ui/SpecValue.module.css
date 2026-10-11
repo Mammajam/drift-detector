@@ -4,7 +4,8 @@
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  white-space: nowrap;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
 }
 
 .expected {
@@ -17,4 +18,10 @@
 
 .arrow {
   color: var(--color-muted);
+}
+
+.spec[data-size="lg"] {
+  gap: var(--space-3);
+  font-size: var(--text-xl);
+  font-weight: 500;
 }

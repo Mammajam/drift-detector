@@ -5,6 +5,7 @@ import { StatePanel } from "@/components/ui/StatePanel";
 import type { Capture } from "@/lib/types";
 import { getDb, isDatabaseConfigured } from "@/server/db";
 import { getLatestCaptures } from "@/server/db/captures-repo";
+import { getSession } from "@/server/auth";
 import { FigmaError } from "@/server/figma";
 import { runCaptures } from "@/server/pipeline";
 import { BadRequest, parseCaptureRequest } from "@/server/request";
@@ -16,11 +17,6 @@ export const maxDuration = 120;
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-
-// Live captures spend the Figma token and launch a browser, and stored captures include the
-// design frames, so both are off in production until sign-in exists (Phase 5).
-// Set ENABLE_LIVE_INSPECTOR=1 to opt in.
-const liveEnabled = () => process.env.NODE_ENV !== "production" || process.env.ENABLE_LIVE_INSPECTOR === "1";
 
 async function liveCaptures(params: SearchParams): Promise<Capture[]> {
   const csv = (v: string | string[] | undefined) => first(v)?.split(",").map((s) => s.trim());
@@ -41,17 +37,18 @@ async function liveCaptures(params: SearchParams): Promise<Capture[]> {
 async function storedCaptures(params: SearchParams): Promise<Capture[]> {
   if (!isDatabaseConfigured()) throw new BadRequest("DATABASE_URL is not set, so there are no stored captures.");
   const path = first(params.route) ?? "/";
-  const captures = await getLatestCaptures(getDb(), {
-    projectName: process.env.PROJECT_NAME ?? "Drift Detector",
-    path,
-  });
+  const captures = await getLatestCaptures(
+    getDb(),
+    { projectName: process.env.PROJECT_NAME ?? "Drift Detector", path },
+    first(params.build),
+  );
   if (captures.length === 0) throw new BadRequest(`No captures are stored for ${path} yet.`);
   return captures;
 }
 
 type InspectorPageProps = {
   // ?state=loading | error | clean previews the other states with sample data.
-  // ?source=db&route=/pricing shows the latest stored captures for a route.
+  // ?source=db&route=/pricing[&build=<previewUrl>] shows the latest stored captures for a route (or one build of it).
   // ?source=api&previewUrl=…&route=/pricing&fileKey=…&nodeId=12:34[&bp=375,768][&theme=light] runs a real capture.
   searchParams: Promise<SearchParams>;
 };
@@ -75,13 +72,14 @@ export default async function InspectorPage({ searchParams }: InspectorPageProps
 
   const source = first(params.source);
   if (source === "api" || source === "db") {
-    if (!liveEnabled()) {
+    // Reading stored captures is public; running a live capture spends the Figma token and CPU.
+    if (source === "api" && !(await getSession())) {
       return (
         <StatePanel
           kind="error"
-          title="Live data is switched off"
-          message="Sample data is shown instead until sign-in is added."
-          action={<Link href="/inspector">Open the sample inspector</Link>}
+          title="Sign in to run a live capture"
+          message="Stored captures are open to everyone; live captures need an account."
+          action={<Link href="/login?next=/inspector">Sign in</Link>}
         />
       );
     }

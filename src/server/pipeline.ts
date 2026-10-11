@@ -39,7 +39,8 @@ export async function runCaptures(
     captures.push({
       route: request.route,
       previewUrl: request.targetUrl,
-      commitSha: "",
+      commitSha: request.commitSha,
+      ...(request.pullRequestUrl ? { pullRequestUrl: request.pullRequestUrl } : {}),
       breakpoint: job.width,
       theme: job.theme,
       frame: { width: result.width, height: result.height },

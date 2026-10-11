@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, isDatabaseConfigured } from "@/server/db";
 import { saveCaptures } from "@/server/db/captures-repo";
+import { isApiAuthorized } from "@/server/auth";
 import { FigmaError } from "@/server/figma";
 import { runCaptures } from "@/server/pipeline";
 import { BadRequest, parseCaptureRequest } from "@/server/request";
@@ -11,6 +12,11 @@ export const maxDuration = 120;
 
 /** POST { previewUrl, route, figmaFileKey, figmaNodeId, figmaNodes?, breakpoints?, themes? } → { captures, persisted } */
 export async function POST(request: Request) {
+  // Captures spend the Figma token and CPU, so they need a signed-in session or the CI bearer token.
+  if (!(await isApiAuthorized(request))) {
+    return NextResponse.json({ error: "Sign in to run captures." }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

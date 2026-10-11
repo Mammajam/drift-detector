@@ -1,0 +1,142 @@
+.route {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.path {
+  font: 600 var(--text-lg) var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.scroll {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.table thead th {
+  font: 500 var(--text-xs) var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.table tbody th {
+  font-weight: 600;
+}
+
+.build {
+  margin-right: var(--space-2);
+}
+
+.latest {
+  margin-right: var(--space-2);
+  padding: 1px var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-design);
+  border: 1px solid var(--color-design);
+  border-radius: var(--radius-pill);
+}
+
+.sha,
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.mono {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.resolved,
+.muted {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.signed {
+  font-weight: 500;
+}
+
+.inspect {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  font-weight: 600;
+  color: var(--color-design);
+  text-underline-offset: 3px;
+}
+
+/* Narrow screens: each build becomes a stacked card with labelled fields. */
+@media (max-width: 720px) {
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+
+  .table tbody tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .table th,
+  .table td {
+    padding: var(--space-1) var(--space-4);
+    border-bottom: 0;
+  }
+
+  .table td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+  }
+
+  .table td[data-label=""]::before {
+    content: none;
+  }
+}

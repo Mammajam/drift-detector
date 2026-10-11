@@ -10,6 +10,7 @@ const request: CaptureRequest = {
   figmaFileKey: "AbC123xyz",
   figmaNodeId: "1:1",
   figmaNodes: { "375-dark": "2:2" },
+  commitSha: "a1b2c3d",
   breakpoints: [375, 768],
   themes: ["light", "dark"],
 };

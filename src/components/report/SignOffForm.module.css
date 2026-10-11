@@ -1,0 +1,11 @@
+.form {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.error {
+  min-height: 1.5em;
+  font-weight: 500;
+  color: var(--color-drift-strong);
+}

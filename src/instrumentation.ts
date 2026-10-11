@@ -10,6 +10,12 @@ export async function register() {
     const { runMigrations } = await import("@/server/db/migrate");
     await runMigrations(url);
     console.log("[db] migrations up to date");
+
+    if (process.env.SEED_DEMO_ON_START === "1") {
+      const [{ getDb }, { seedDemo }] = await Promise.all([import("@/server/db"), import("@/server/db/queries")]);
+      const seeded = await seedDemo(getDb(), process.env.PROJECT_NAME ?? "Drift Detector");
+      console.log(seeded ? "[db] demo data loaded" : "[db] demo data skipped (project already has routes)");
+    }
   } catch (error) {
     // Don't take the whole app down; /api/health still reports the database state.
     console.error("[db] migration failed", error);

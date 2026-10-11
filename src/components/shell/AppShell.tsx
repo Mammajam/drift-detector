@@ -9,7 +9,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <AppHeader />
-      <main id="main" className={styles.main}>
+      <main id="main" tabIndex={-1} className={styles.main}>
         {children}
       </main>
     </>

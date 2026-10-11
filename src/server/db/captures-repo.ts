@@ -50,6 +50,7 @@ export async function saveCaptures(db: AnyDb, route: RouteInput, captures: Captu
           routeId: routeRow.id,
           url: capture.previewUrl,
           commitSha: capture.commitSha,
+          pullRequestUrl: capture.pullRequestUrl ?? null,
           theme: capture.theme,
           breakpoint: capture.breakpoint,
           frameWidth: capture.frame.width,
@@ -86,7 +87,7 @@ export async function saveCaptures(db: AnyDb, route: RouteInput, captures: Captu
 }
 
 /** The latest capture for each breakpoint × theme of a route, with drifts and images; [] if the route is unknown. */
-export async function getLatestCaptures(db: AnyDb, ref: RouteRef): Promise<Capture[]> {
+export async function getLatestCaptures(db: AnyDb, ref: RouteRef, previewUrl?: string): Promise<Capture[]> {
   const [route] = await db
     .select({ id: schema.routes.id })
     .from(schema.routes)
@@ -97,7 +98,11 @@ export async function getLatestCaptures(db: AnyDb, ref: RouteRef): Promise<Captu
   const rows = await db
     .select()
     .from(schema.captures)
-    .where(eq(schema.captures.routeId, route.id))
+    .where(
+      previewUrl
+        ? and(eq(schema.captures.routeId, route.id), eq(schema.captures.url, previewUrl))
+        : eq(schema.captures.routeId, route.id),
+    )
     .orderBy(desc(schema.captures.createdAt), desc(schema.captures.id));
 
   const latest = new Map<string, (typeof rows)[number]>();
@@ -121,6 +126,7 @@ export async function getLatestCaptures(db: AnyDb, ref: RouteRef): Promise<Captu
       .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
       .map((d) => ({
         id: d.key,
+        ticketId: d.id,
         label: d.label,
         expected: d.expected,
         actual: d.actual,
@@ -133,6 +139,7 @@ export async function getLatestCaptures(db: AnyDb, ref: RouteRef): Promise<Captu
       route: ref.path,
       previewUrl: row.url,
       commitSha: row.commitSha,
+      ...(row.pullRequestUrl ? { pullRequestUrl: row.pullRequestUrl } : {}),
       breakpoint: row.breakpoint as Breakpoint,
       theme: row.theme as CaptureTheme,
       frame: { width: row.frameWidth, height: row.frameHeight },

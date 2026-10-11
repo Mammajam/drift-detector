@@ -34,3 +34,10 @@
   border-radius: 4px;
   box-shadow: 5px 5px 0 -1px var(--color-build);
 }
+
+/* On phones the header wraps to several rows; keep it in the flow so it doesn't cover the page. */
+@media (max-width: 640px) {
+  .header {
+    position: static;
+  }
+}

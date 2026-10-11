@@ -2,6 +2,7 @@
 
 import { useRef, type KeyboardEvent } from "react";
 import type { Drift } from "@/lib/types";
+import Link from "next/link";
 import { SpecValue } from "@/components/ui/SpecValue";
 import styles from "./DriftList.module.css";
 
@@ -61,6 +62,11 @@ export function DriftList({ drifts, selectedId, onSelect }: DriftListProps) {
             </span>
             <SpecValue expected={drift.expected} actual={drift.actual} />
           </button>
+          {drift.ticketId ? (
+            <Link href={`/drifts/${drift.ticketId}`} className={styles.ticket}>
+              Open ticket<span className="sr-only"> for drift {index + 1}</span>
+            </Link>
+          ) : null}
         </li>
       ))}
     </ol>

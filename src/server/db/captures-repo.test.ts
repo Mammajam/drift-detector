@@ -58,6 +58,7 @@ describe("captures repository", () => {
       commitSha: "a1b2c3d",
     });
     expect(loaded.drifts).toHaveLength(2);
+    expect(loaded.drifts[0].ticketId).toMatch(/^[0-9a-f-]{36}$/);
     expect(loaded.drifts[0]).toMatchObject({ id: "d1", expected: "#2f5bea", bbox: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } });
     expect(loaded.drifts[1]).toMatchObject({ id: "d2", token: "radius-md", status: "wont-fix" });
     expect(loaded.images).toEqual(capture().images);

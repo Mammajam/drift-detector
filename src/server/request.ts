@@ -17,12 +17,16 @@ export type CaptureRequest = {
   figmaNodeId: string;
   /** Optional per breakpoint/theme frames, e.g. "375-dark"; falls back to figmaNodeId. */
   figmaNodes: Partial<Record<FigmaNodeKey, string>>;
+  commitSha: string;
+  pullRequestUrl?: string;
   breakpoints: Breakpoint[];
   themes: CaptureTheme[];
 };
 
 const FILE_KEY = /^[A-Za-z0-9]{1,64}$/;
 const NODE_ID = /^\d+[:-]\d+$/;
+const COMMIT_SHA = /^[0-9a-f]{7,40}$/i;
+const PULL_REQUEST = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
 
 function str(value: unknown, field: string): string {
   if (typeof value !== "string" || !value) throw new BadRequest(`${field} is required.`);
@@ -76,12 +80,21 @@ export function parseCaptureRequest(input: unknown, urlOptions: PreviewUrlOption
     }
   }
 
+  const commitSha = body.commitSha === undefined ? "" : String(body.commitSha);
+  if (commitSha && !COMMIT_SHA.test(commitSha)) throw new BadRequest("commitSha must be a git commit hash.");
+  const pullRequestUrl = body.pullRequestUrl === undefined ? undefined : String(body.pullRequestUrl);
+  if (pullRequestUrl !== undefined && !PULL_REQUEST.test(pullRequestUrl)) {
+    throw new BadRequest("pullRequestUrl must be a GitHub pull request URL.");
+  }
+
   return {
     targetUrl,
     route,
     figmaFileKey,
     figmaNodeId,
     figmaNodes,
+    commitSha,
+    ...(pullRequestUrl ? { pullRequestUrl } : {}),
     breakpoints: subset(body.breakpoints, ALL_BREAKPOINTS, "breakpoints"),
     themes: subset(body.themes, ALL_THEMES, "themes"),
   };

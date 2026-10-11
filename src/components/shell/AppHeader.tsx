@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ThemeSwitch } from "@/components/theme/ThemeSwitch";
+import { AccountMenu } from "./AccountMenu";
 import { NavLinks } from "./NavLinks";
 import styles from "./AppHeader.module.css";
 
@@ -12,6 +13,7 @@ export function AppHeader() {
           Drift Detector
         </Link>
         <NavLinks />
+        <AccountMenu />
         <ThemeSwitch />
       </div>
     </header>

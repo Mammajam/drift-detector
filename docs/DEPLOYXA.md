@@ -41,7 +41,11 @@ Add as **encrypted** variables, for both Production and Preview environments.
 | `PREVIEW_HOST_SUFFIXES` | `.deployxa.online` | the capture worker refuses any other host (confirm the PR preview host also ends this way) |
 | `PROJECT_NAME` | optional, default `Drift Detector` | groups routes into a project |
 | `DB_POOL_MAX` | optional, default `5` | lower it if the managed Postgres has a small connection cap |
-| `ENABLE_LIVE_INSPECTOR` | leave unset | live and stored data views stay off in production until sign-in exists (Phase 5) |
+| `APP_PASSCODE` | a passphrase you choose | **secret.** Enables sign-in. Without it, production stays read-only (nobody can change statuses, sign off or run captures) |
+| `AUTH_SECRET` | optional long random string | **secret.** Signs session cookies; defaults to `APP_PASSCODE` |
+| `CAPTURE_API_TOKEN` | optional long random string | **secret.** Lets CI call `POST /api/captures` with `Authorization: Bearer …` |
+| `SEED_DEMO_ON_START` | `1` (optional) | loads the demo project into an empty database on server start, so the board isn't empty for visitors |
+| `DEPLOYXA_ROLLBACK_URL` | optional | where "Roll back on Deployxa" points; defaults to `https://deployxa.com/dashboard/deployments` |
 
 ## 5. Turn on pull request previews
 Enable preview deploys for pull requests. Then open a small PR and confirm it gets a preview URL.
@@ -55,8 +59,8 @@ If your previews use a host other than `.deployxa.app`, update `PREVIEW_HOST_SUF
     -d '{"previewUrl":"https://<pr-preview-host>","route":"/pricing","figmaFileKey":"<key>","figmaNodeId":"12:34"}'
   ```
   The response has `"persisted": true` when the rows were stored.
-  **This route has no sign-in yet.** It only loads allowlisted hosts, but it spends your Figma token and CPU, so
-  don't share the URL until Phase 5 adds auth.
+  The route needs a signed-in session cookie or `Authorization: Bearer $CAPTURE_API_TOKEN`; otherwise it returns 401.
+  Optional body fields: `commitSha`, `pullRequestUrl` (shown on the board and tickets).
 
 ## If Chromium won't run on Deployxa (SPEC §12)
 Symptoms: `/api/captures` returns 500 and the logs show a Playwright launch error. Fix: run the capture worker as its
