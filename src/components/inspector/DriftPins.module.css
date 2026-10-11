@@ -1,0 +1,44 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.outline {
+  position: absolute;
+  border: 2px dashed var(--color-drift-strong);
+  background: color-mix(in srgb, var(--color-drift) 12%, transparent);
+}
+
+/* teardrop shape + number: drift is never signalled by colour alone */
+.pin {
+  position: absolute;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: -14px 0 0 -14px;
+  font: 600 var(--text-xs) / 24px var(--font-mono);
+  text-align: center;
+  color: var(--color-on-drift);
+  background: var(--color-drift-strong);
+  border: 2px solid var(--color-surface);
+  border-radius: 50% 50% 50% 4px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform var(--duration-fast);
+}
+
+.pin[aria-pressed="true"] {
+  z-index: 2;
+  transform: scale(1.2);
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 4px var(--color-drift-strong);
+}
+
+.pin:focus-visible {
+  outline-color: var(--color-ink);
+  outline-offset: 3px;
+}

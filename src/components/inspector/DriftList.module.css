@@ -1,0 +1,70 @@
+.list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+  width: 100%;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.item > :last-child {
+  grid-column: 2;
+}
+
+.item[aria-pressed="true"] {
+  background: var(--color-drift-soft);
+  border-color: var(--color-drift-strong);
+  box-shadow: inset 4px 0 0 var(--color-drift-strong);
+}
+
+.number {
+  font: 600 var(--text-xs) var(--font-mono);
+  color: var(--color-drift-strong);
+}
+
+.label {
+  display: grid;
+  gap: 2px;
+}
+
+.token {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-muted);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-resolved);
+  border-radius: var(--radius-md);
+}
+
+.check {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-weight: 700;
+  color: var(--color-on-accent);
+  background: var(--color-resolved);
+  border-radius: 50%;
+}

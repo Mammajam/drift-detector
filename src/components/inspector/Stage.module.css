@@ -1,0 +1,61 @@
+.stage {
+  min-width: 0;
+  padding: var(--space-4);
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
+  background-size: 14px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.layers {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  isolation: isolate;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.pane {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.caption::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--color-design);
+  border-radius: 3px;
+}
+
+.caption[data-kind="build"]::before {
+  background: var(--color-build);
+}
+
+@media (max-width: 640px) {
+  .side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

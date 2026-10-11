@@ -1,0 +1,23 @@
+.nav {
+  display: flex;
+  gap: var(--space-4);
+  margin-right: auto;
+}
+
+.link {
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.link:hover,
+.link[aria-current="page"] {
+  color: var(--color-ink);
+}
+
+.link[aria-current="page"] {
+  border-bottom-color: var(--color-design);
+}

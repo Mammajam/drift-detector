@@ -1,0 +1,123 @@
+/* Design tokens. Source: SPEC §9 (swap values from the Figma variables when the MCP is connected).
+   Light on :root; dark via system preference (unless forced light) and via [data-theme="dark"].
+   [data-theme-scope] lets one element (e.g. a captured frame) render in a theme of its own. */
+
+:root,
+[data-theme-scope="light"] {
+  /* colour: neutrals */
+  --color-canvas: #f6f8fb;
+  --color-surface: #ffffff;
+  --color-ink: #151a26;
+  --color-muted: #5b6478;
+  --color-line: #e2e6ee;
+  --color-tint: #eef2fe;
+  --color-code-bg: #f0f3f9;
+
+  /* colour: semantic (fixed meaning in both themes).
+     Base values are for fills and shapes; *-text / *-strong are AA-safe for small text and pin fills. */
+  --color-design: #2f5bea;
+  --color-build: #e58a1f;
+  --color-build-text: #9a5206;
+  --color-drift: #d93f6e;
+  --color-drift-strong: #c0305c;
+  --color-drift-soft: #fbe7ee;
+  --color-resolved: #1f8a5b;
+  --color-on-accent: #ffffff;
+  --color-on-drift: #ffffff;
+  --color-focus: #2f5bea;
+
+  /* type */
+  --font-display: var(--font-bricolage), "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-figtree), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: clamp(1.55rem, 3vw, 2.1rem);
+  --text-2xl: clamp(2.3rem, 5.4vw, 3.9rem);
+  --leading-tight: 1.1;
+  --leading-body: 1.6;
+
+  /* spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* elevation + motion */
+  --shadow-sm: 0 1px 3px rgb(21 26 38 / 0.12);
+  --shadow-lg: 0 20px 50px -30px rgb(30 45 90 / 0.35);
+  --duration-fast: 150ms;
+
+  --layout-max: 1120px;
+  --layout-gutter: var(--space-4);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #10131b;
+    --color-surface: #181c27;
+    --color-ink: #eaedf4;
+    --color-muted: #9aa3b6;
+    --color-line: #2a3040;
+    --color-tint: #1d2436;
+    --color-code-bg: #131722;
+
+    --color-design: #7c9bff;
+    --color-build: #f2a54a;
+    --color-build-text: #f2a54a;
+    --color-drift: #ff6f98;
+    --color-drift-strong: #ff6f98;
+    --color-drift-soft: #3a1e2a;
+    --color-resolved: #4cc28d;
+    --color-on-accent: #10131b;
+    --color-on-drift: #10131b;
+    --color-focus: #7c9bff;
+
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 20px 50px -30px rgb(0 0 0 / 0.7);
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"],
+[data-theme-scope="dark"] {
+  --color-canvas: #10131b;
+  --color-surface: #181c27;
+  --color-ink: #eaedf4;
+  --color-muted: #9aa3b6;
+  --color-line: #2a3040;
+  --color-tint: #1d2436;
+  --color-code-bg: #131722;
+
+  --color-design: #7c9bff;
+  --color-build: #f2a54a;
+  --color-build-text: #f2a54a;
+  --color-drift: #ff6f98;
+  --color-drift-strong: #ff6f98;
+  --color-drift-soft: #3a1e2a;
+  --color-resolved: #4cc28d;
+  --color-on-accent: #10131b;
+  --color-on-drift: #10131b;
+  --color-focus: #7c9bff;
+
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 20px 50px -30px rgb(0 0 0 / 0.7);
+
+  color-scheme: dark;
+}

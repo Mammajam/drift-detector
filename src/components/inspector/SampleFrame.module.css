@@ -1,0 +1,118 @@
+/* This mocks a page under test, not app UI. Pixel values are deliberate: they are the "design" and
+   "build" specs the sample drifts describe, and must match src/lib/sample/pricing.ts.
+   Colours still come from tokens. */
+
+.frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  font-family: var(--font-body);
+}
+
+.card {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 300px;
+  margin-left: -150px;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.frame[data-surface-drift="true"] .card {
+  background: var(--color-tint);
+}
+
+.label {
+  height: 12px;
+  font: 600 11px/12px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.price {
+  height: 40px;
+  margin-top: 10px;
+  font-family: var(--font-display);
+  line-height: 40px;
+  white-space: nowrap;
+}
+
+.price small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.text {
+  height: 40px;
+  margin-top: 6px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.list {
+  display: grid;
+  padding: 0;
+  margin: 14px 0 18px;
+  font-size: 13px;
+  line-height: 20px;
+  list-style: none;
+}
+
+.list li::before {
+  content: "✓";
+  margin-right: 8px;
+  font-weight: 700;
+  color: var(--color-resolved);
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  font: 600 14px var(--font-body);
+  color: var(--color-on-accent);
+}
+
+/* design: 24 padding, 34/700 price, 10 list gap, 44 tall button with radius 10 */
+.design .card {
+  padding: 24px;
+  border-radius: var(--radius-lg);
+}
+.design .price {
+  font-size: 34px;
+  font-weight: 700;
+}
+.design .list {
+  gap: 10px;
+}
+.design .button {
+  height: 44px;
+  background: var(--color-design);
+  border-radius: var(--radius-md);
+}
+
+/* build: the same page, a few pixels off */
+.build .card {
+  padding: 20px;
+  border-radius: 8px;
+}
+.build .price {
+  font-size: 32px;
+  font-weight: 600;
+}
+.build .list {
+  gap: 6px;
+}
+.build .button {
+  height: 40px;
+  background: color-mix(in srgb, var(--color-design) 82%, var(--color-ink));
+  border-radius: var(--radius-sm);
+}

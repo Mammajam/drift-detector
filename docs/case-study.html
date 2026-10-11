@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drift Detector Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one airy editorial column; the live overlay demo is the hero, specs set in mono like an inspector panel */
+:root{
+  --bg:#F6F8FB; --surface:#FFFFFF; --ink:#151A26; --muted:#5B6478; --line:#E2E6EE;
+  --design:#2F5BEA; --build:#E58A1F; --drift:#D93F6E; --drift-soft:#FBE7EE; --ok:#1F8A5B;
+  --accent:#2F5BEA; --accent-drift:#5470E6; --tint:#EEF2FE; --code-bg:#F0F3F9;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10131B; --surface:#181C27; --ink:#EAEDF4; --muted:#9AA3B6; --line:#2A3040;
+  --design:#7C9BFF; --build:#F2A54A; --drift:#FF6F98; --drift-soft:#3A1E2A; --ok:#4CC28D;
+  --accent:#6E8CFF; --accent-drift:#8098F5; --tint:#1D2436; --code-bg:#131722; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10131B; --surface:#181C27; --ink:#EAEDF4; --muted:#9AA3B6; --line:#2A3040;
+  --design:#7C9BFF; --build:#F2A54A; --drift:#FF6F98; --drift-soft:#3A1E2A; --ok:#4CC28D;
+  --accent:#6E8CFF; --accent-drift:#8098F5; --tint:#1D2436; --code-bg:#131722; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.65 var(--f-body);padding-inline:20px;padding-block:0}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(2.3rem,5.4vw,3.9rem);line-height:1.04;font-weight:700}
+h2{font-size:clamp(1.55rem,3vw,2.1rem);line-height:1.15;font-weight:600}
+h3{font-size:1.08rem;font-weight:600}
+p{margin:0;max-width:65ch}
+.eyebrow{font:500 .74rem/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-size:.84em}
+section{padding-block:64px;border-top:1px solid var(--line)}
+.sec-head{display:grid;gap:12px;margin-bottom:32px}
+
+/* hero */
+header{padding-block:56px 48px;display:grid;gap:40px;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:center}
+.hero-copy{display:grid;gap:20px;min-width:0}
+.hero-copy .lede{font-size:1.14rem;color:var(--muted)}
+.hero-copy h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--drift-soft) 62%);}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:.88rem}
+.meta b{color:var(--ink);font-weight:600}
+
+/* demo */
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;gap:16px;min-width:0;box-shadow:0 20px 50px -30px rgba(30,45,90,.35)}
+.demo-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{font:500 .8rem var(--f-body);color:var(--muted);background:none;border:0;border-radius:999px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.toggle{font:500 .8rem var(--f-body);display:inline-flex;gap:8px;align-items:center;color:var(--ink);cursor:pointer}
+.toggle input{accent-color:var(--drift);width:16px;height:16px}
+button:focus-visible,input:focus-visible,.pin:focus-visible{outline:2px solid var(--design);outline-offset:2px}
+.stage{position:relative;height:360px;border-radius:14px;overflow:hidden;
+  background-color:var(--bg);background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:14px 14px}
+.canvas{position:absolute;left:50%;top:18px;width:300px;margin-left:-150px;height:324px}
+.layer{position:absolute;inset:0}
+.layer.build{transition:opacity .15s}
+.stage.diff .layer.build{mix-blend-mode:difference}
+.card{background:var(--surface);color:var(--ink);font-family:var(--f-body);width:300px}
+.design .card{padding:24px;border-radius:16px;border:1px solid var(--line)}
+.build .card{padding:20px;border-radius:8px;border:1px solid var(--line)}
+.c-label{font:600 .68rem/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.c-price{font-family:var(--f-display);margin-top:10px;line-height:1.1}
+.design .c-price{font-size:34px;font-weight:700}
+.build .c-price{font-size:32px;font-weight:600}
+.c-price small{font-size:14px;font-weight:500;color:var(--muted)}
+.c-text{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.c-list{list-style:none;margin:14px 0 18px;padding:0;display:grid;font-size:13px}
+.design .c-list{gap:10px}.build .c-list{gap:6px}
+.c-list li::before{content:"✓";color:var(--ok);font-weight:700;margin-right:8px}
+.c-btn{display:block;width:100%;border:0;color:#fff;font:600 14px var(--f-body);cursor:default}
+.design .c-btn{background:var(--accent);height:44px;border-radius:10px}
+.build .c-btn{background:var(--accent-drift);height:40px;border-radius:6px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.slider{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;font:500 .76rem var(--f-mono);color:var(--muted)}
+.slider input{width:100%;accent-color:var(--design)}
+.pin{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50% 50% 50% 4px;background:var(--drift);color:#fff;
+  font:600 11px/24px var(--f-mono);text-align:center;border:2px solid var(--surface);cursor:pointer;box-shadow:0 4px 12px -4px var(--drift);z-index:3;padding:0}
+.pin[aria-pressed="true"]{transform:scale(1.18)}
+.stage:not(.show-pins) .pin{display:none}
+.drift-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.drift-list li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:.84rem;padding:8px 10px;border-radius:10px;border:1px solid transparent}
+.drift-list li.active{background:var(--drift-soft);border-color:var(--drift)}
+.drift-list .n{font:600 .72rem var(--f-mono);color:var(--drift)}
+.drift-list .spec{font:400 .74rem var(--f-mono);color:var(--muted);white-space:nowrap}
+.spec .d{color:var(--design)}.spec .b{color:var(--build)}
+
+/* content blocks */
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.persona{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:grid;gap:10px;min-width:0}
+.persona .role{font:500 .74rem var(--f-mono);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.persona q{font-family:var(--f-display);font-size:1.12rem;line-height:1.35;quotes:none}
+.persona ul{margin:0;padding-left:18px;color:var(--muted);font-size:.92rem}
+.note{font-size:.84rem;color:var(--muted);margin-top:16px}
+
+.flow{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;counter-reset:s}
+.flow li{position:relative;padding:22px 22px 0 0;border-top:2px solid var(--line);counter-increment:s;min-width:0}
+.flow li::before{content:counter(s,decimal-leading-zero);position:absolute;top:-13px;left:0;background:var(--bg);padding-right:10px;font:600 .8rem var(--f-mono);color:var(--design)}
+.flow li:last-child{border-top-color:var(--ok)}
+.flow li:last-child::before{color:var(--ok)}
+.flow p{font-size:.92rem;color:var(--muted);margin-top:6px}
+
+.screens{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.screen{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;min-width:0}
+.thumb{height:120px;background:var(--tint);position:relative;padding:12px;display:grid;gap:6px;align-content:start}
+.bar{height:8px;border-radius:4px;background:var(--line)}
+.screen .cap{padding:14px 16px;display:grid;gap:4px}
+.screen .cap p{font-size:.84rem;color:var(--muted)}
+
+/* deployxa architecture */
+.arch{overflow-x:auto}
+.arch-row{display:grid;grid-template-columns:minmax(150px,1fr) 44px minmax(190px,1.3fr) 44px minmax(150px,1fr);align-items:center;min-width:640px}
+.node{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px;display:grid;gap:6px}
+.node.core{border-color:var(--design);background:var(--tint)}
+.node .k{font:500 .7rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.node ul{margin:0;padding-left:16px;font-size:.82rem;color:var(--muted)}
+.arrow{height:2px;background:var(--line);position:relative}
+.arrow::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:7px solid var(--muted);border-right:0}
+.arrow.l::after{right:auto;left:-1px;border-left:0;border-right:7px solid var(--muted)}
+.hooks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px;margin-top:28px}
+.hook{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start}
+.hook .tag{font:600 .68rem var(--f-mono);padding:4px 8px;border-radius:6px;background:var(--tint);color:var(--design);white-space:nowrap}
+.hook p{font-size:.92rem}
+.hook p b{font-weight:600}
+
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .72rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td:first-child{font-weight:600;white-space:nowrap}
+.days{font-family:var(--f-mono);font-size:.82rem;color:var(--design);white-space:nowrap}
+
+.tokens{display:flex;flex-wrap:wrap;gap:14px}
+.sw{display:grid;gap:6px;font:400 .74rem var(--f-mono);color:var(--muted)}
+.sw i{display:block;width:72px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--c)}
+
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.metric{border-left:2px solid var(--ok);padding-left:16px;display:grid;gap:4px}
+.metric .v{font:600 1.5rem var(--f-display)}
+.metric p{font-size:.88rem;color:var(--muted)}
+
+/* theme switcher */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding-block:12px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font:600 .95rem var(--f-display);display:flex;align-items:center;gap:8px}
+.brand i{width:14px;height:14px;border-radius:4px;background:var(--design);box-shadow:5px 5px 0 -1px var(--build);display:inline-block;opacity:.9}
+.theme-note{font-size:.84rem;color:var(--muted);margin-top:10px}
+
+/* code + steps */
+pre{margin:0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;
+  font:400 .8rem/1.6 var(--f-mono);color:var(--ink)}
+pre .c{color:var(--muted)} pre .k{color:var(--design)} pre .s{color:var(--build)}
+.theme-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:28px;align-items:start}
+.theme-grid ul{margin:12px 0 0;padding-left:18px;display:grid;gap:8px;font-size:.94rem}
+.phases{display:grid;gap:14px}
+.phase{display:grid;grid-template-columns:110px minmax(0,1fr);gap:20px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.phase .when{display:grid;gap:6px;align-content:start}
+.phase .when b{font:600 .95rem var(--f-display)}
+.phase .body{display:grid;gap:10px;min-width:0}
+.phase .body p{font-size:.93rem;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 .7rem var(--f-mono);padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--bg)}
+.chip.cc{color:var(--design);border-color:color-mix(in srgb,var(--design) 40%,var(--line))}
+.chip.dx{color:var(--build);border-color:color-mix(in srgb,var(--build) 40%,var(--line))}
+.setup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:24px}
+.setup>div{display:grid;gap:10px;min-width:0}
+.risk{display:grid;gap:8px;margin-top:24px;padding:18px 20px;border-radius:14px;background:var(--drift-soft)}
+.risk ul{margin:0;padding-left:18px;font-size:.92rem;display:grid;gap:6px}
+@media (max-width:860px){.theme-grid,.setup{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.phase{grid-template-columns:minmax(0,1fr);gap:10px}}
+
+footer{padding-block:40px 64px;border-top:1px solid var(--line);color:var(--muted);font-size:.86rem}
+
+@media (max-width:860px){
+  header{grid-template-columns:minmax(0,1fr)}
+  .three,.metrics{grid-template-columns:minmax(0,1fr)}
+  .screens,.flow{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:28px}
+  .hooks{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .two,.screens,.flow{grid-template-columns:minmax(0,1fr)}
+  section{padding-block:48px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<div class="topbar">
+  <span class="brand"><i aria-hidden="true"></i>Drift Detector</span>
+  <div class="seg" role="group" aria-label="Theme">
+    <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+    <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+    <button type="button" data-theme-set="system" aria-pressed="true">System</button>
+  </div>
+</div>
+<header>
+  <div class="hero-copy">
+    <span class="eyebrow">Case study · Hyperbloom October · Design × Productivity</span>
+    <h1>Drift Detector catches the gap between <em>design and build</em> before users do.</h1>
+    <p class="lede">A visual QA tool for product designers and frontend developers. It lays the Figma frame over every Deployxa preview build, flags each spacing, type and colour mismatch, and turns it into a fix ticket.</p>
+    <div class="meta"><span><b>Role</b> Product design + frontend</span><span><b>Timeline</b> 9 days</span><span><b>Stack</b> Figma · Next.js · Deployxa</span></div>
+  </div>
+
+  <div class="demo" aria-label="Interactive overlay demo">
+    <div class="demo-bar">
+      <div class="seg" role="group" aria-label="Compare mode">
+        <button type="button" id="m-overlay" aria-pressed="true">Overlay</button>
+        <button type="button" id="m-diff" aria-pressed="false">Difference</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="pins-toggle" checked> Show drift</label>
+    </div>
+    <div class="stage show-pins" id="stage">
+      <div class="canvas">
+        <div class="layer design" aria-hidden="true">
+          <div class="card">
+            <div class="c-label">Pro plan</div>
+            <div class="c-price">$24<small> / month</small></div>
+            <p class="c-text">Unlimited projects and drift checks on every preview deploy.</p>
+            <ul class="c-list"><li>Figma frame sync</li><li>Auto drift tickets</li><li>Sign-off reports</li></ul>
+            <span class="c-btn" style="display:grid;place-items:center">Start free trial</span>
+          </div>
+        </div>
+        <div class="layer build" id="build" aria-hidden="true">
+          <div class="card">
+            <div class="c-label">Pro plan</div>
+            <div class="c-price">$24<small> / month</small></div>
+            <p class="c-text">Unlimited projects and drift checks on every preview deploy.</p>
+            <ul class="c-list"><li>Figma frame sync</li><li>Auto drift tickets</li><li>Sign-off reports</li></ul>
+            <span class="c-btn" style="display:grid;place-items:center">Start free trial</span>
+          </div>
+        </div>
+        <button type="button" class="pin" data-i="1" style="left:6px;top:6px" aria-label="Drift 1: card padding">1</button>
+        <button type="button" class="pin" data-i="2" style="left:150px;top:62px" aria-label="Drift 2: price type">2</button>
+        <button type="button" class="pin" data-i="3" style="left:200px;top:178px" aria-label="Drift 3: list gap">3</button>
+        <button type="button" class="pin" data-i="4" style="left:290px;top:290px" aria-label="Drift 4: button">4</button>
+      </div>
+    </div>
+    <div class="slider">
+      <span style="color:var(--design)">Figma</span>
+      <input type="range" id="opacity" min="0" max="100" value="55" aria-label="Build layer opacity">
+      <span style="color:var(--build)">Live build</span>
+    </div>
+    <ul class="drift-list" id="drift-list">
+      <li data-i="1"><span class="n">01</span><span>Card padding</span><span class="spec"><span class="d">24</span> → <span class="b">20</span></span></li>
+      <li data-i="2"><span class="n">02</span><span>Price weight and size</span><span class="spec"><span class="d">700/34</span> → <span class="b">600/32</span></span></li>
+      <li data-i="3"><span class="n">03</span><span>List gap</span><span class="spec"><span class="d">10</span> → <span class="b">6</span></span></li>
+      <li data-i="4"><span class="n">04</span><span>Button radius, height, fill</span><span class="spec"><span class="d">10·44</span> → <span class="b">6·40</span></span></li>
+    </ul>
+    <div class="legend"><span style="--c:var(--design)">Design layer</span><span style="--c:var(--build)">Build layer</span><span style="--c:var(--drift)">Drift</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">The problem</span><h2>Small mismatches pile up between the Figma file and production.</h2></div>
+  <div class="two">
+    <p>Designers hand off pixel-precise frames. The build drifts a few pixels at a time: a padding rounded down, a font weight swapped, a colour that's close but not the token. Nobody catches it until a design QA pass days later, when finding the cause means flicking between two windows and guessing.</p>
+    <p>That pass is slow, subjective and repeated on every release. Feedback lands as screenshots in chat with no link to the exact build or line of code, and fixes get lost. The cost is time for both roles and a product that slowly stops matching its own design system.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Who it's for</span><h2>Two roles, one shared view of the truth.</h2></div>
+  <div class="two">
+    <div class="persona">
+      <span class="role">Product designer</span>
+      <q>"I spend release week screenshotting the staging site and drawing red circles."</q>
+      <ul><li>Needs: proof of what drifted, on which build</li><li>Wants: to sign off with confidence, not by eye</li></ul>
+    </div>
+    <div class="persona">
+      <span class="role">Frontend developer</span>
+      <q>"Tell me the exact value and where. 'Feels off' isn't a ticket."</q>
+      <ul><li>Needs: precise spec values: px, weight, token name</li><li>Wants: feedback tied to the pull request they're on</li></ul>
+    </div>
+  </div>
+  <p class="note">Proto-personas built from common handoff pain points. Validate with 5 short interviews (3 designers, 2 developers) on days 1–2.</p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Core flow</span><h2>From pull request to sign-off in four steps.</h2></div>
+  <ol class="flow">
+    <li><h3>Link</h3><p>Connect a Figma frame to a route, such as <span class="mono">/pricing</span>, in the project.</p></li>
+    <li><h3>Capture</h3><p>Each Deployxa preview deploy is captured at matching breakpoints.</p></li>
+    <li><h3>Compare</h3><p>Overlay, difference and side-by-side views; drift is auto-flagged as pins with spec values.</p></li>
+    <li><h3>Resolve</h3><p>Pins become tickets on the pull request. The next preview re-checks them, and the designer signs off.</p></li>
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Key screens</span><h2>Four screens cover the MVP.</h2></div>
+  <div class="screens">
+    <div class="screen"><div class="thumb"><div class="bar" style="width:60%"></div><div class="bar" style="width:90%"></div><div class="bar" style="width:75%"></div><div class="bar" style="width:40%;background:var(--ok)"></div></div><div class="cap"><h3>Project board</h3><p>Routes × preview builds, with a drift score badge on each.</p></div></div>
+    <div class="screen"><div class="thumb" style="background:linear-gradient(90deg,var(--tint) 50%,var(--bg) 50%)"><div class="bar" style="width:70%;background:var(--design)"></div><div class="bar" style="width:62%;background:var(--build)"></div></div><div class="cap"><h3>Overlay inspector</h3><p>The demo above: opacity scrub, difference blend, drift pins.</p></div></div>
+    <div class="screen"><div class="thumb"><div class="bar" style="width:30%;background:var(--drift)"></div><div class="bar" style="width:85%"></div><div class="bar" style="width:55%"></div></div><div class="cap"><h3>Drift ticket</h3><p>Expected vs actual, design token, cropped evidence, link to the pull request.</p></div></div>
+    <div class="screen"><div class="thumb"><div class="bar" style="width:50%;background:var(--ok)"></div><div class="bar" style="width:80%"></div><div class="bar" style="width:65%"></div></div><div class="cap"><h3>Sign-off report</h3><p>A shareable page showing what drifted, what was fixed, and who approved it.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Sponsor integration</span><h2>Built on Deployxa, and built around it.</h2>
+    <p style="color:var(--muted)">Deployxa's preview deploy for each pull request is the trigger for every check. The tool itself also runs on Deployxa.</p></div>
+  <div class="arch">
+    <div class="arch-row">
+      <div class="node"><span class="k">Design source</span><h3>Figma API</h3><ul><li>Frame image export</li><li>Node styles and tokens</li></ul></div>
+      <div class="arrow"></div>
+      <div class="node core"><span class="k">Deployed on Deployxa</span><h3>Drift Detector</h3><ul><li>Next.js app + Node worker</li><li>Playwright capture</li><li>Pixel + style diff</li><li>Managed Postgres</li></ul></div>
+      <div class="arrow l"></div>
+      <div class="node"><span class="k">Build source</span><h3>Deployxa previews</h3><ul><li>One URL per pull request</li><li>Production for baseline</li></ul></div>
+    </div>
+  </div>
+  <div class="hooks">
+    <div class="hook"><span class="tag">PREVIEW</span><p><b>Preview deploys as the input.</b> Every pull request preview URL is captured and diffed automatically. Teams already get these URLs from Deployxa's Git workflow.</p></div>
+    <div class="hook"><span class="tag">POSTGRES</span><p><b>Managed database.</b> Projects, routes, drift tickets and sign-offs live in Deployxa-managed Postgres with automated backups.</p></div>
+    <div class="hook"><span class="tag">SECRETS</span><p><b>Encrypted environment variables.</b> Figma access tokens and Git credentials are stored in Deployxa secrets, never in the client.</p></div>
+    <div class="hook"><span class="tag">ROLLBACK</span><p><b>Drift-aware rollback.</b> If production drifts badly, the report links straight to Deployxa's one-click rollback to the last signed-off build.</p></div>
+  </div>
+  <p class="note">MVP assumption: preview URLs are pasted in or read from the pull request. If Deployxa exposes deploy events, the capture runs automatically on each deploy.</p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Design principles</span><h2>Light, calm, precise.</h2></div>
+  <div class="three">
+    <div><h3>Calm by default</h3><p style="color:var(--muted);font-size:.94rem;margin-top:6px">Airy whites and generous space keep attention on the work being compared. Colour is reserved for meaning.</p></div>
+    <div><h3>Two-layer colour code</h3><p style="color:var(--muted);font-size:.94rem;margin-top:6px">Blue always means design, amber always means build, rose means drift. The same three colours appear on every screen.</p></div>
+    <div><h3>Specs, not opinions</h3><p style="color:var(--muted);font-size:.94rem;margin-top:6px">Every flag shows the expected value and the actual value in monospace, so feedback is objective and easy to copy.</p></div>
+  </div>
+  <div class="tokens" style="margin-top:28px">
+    <div class="sw"><i style="--c:var(--design)"></i>Design</div>
+    <div class="sw"><i style="--c:var(--build)"></i>Build</div>
+    <div class="sw"><i style="--c:var(--drift)"></i>Drift</div>
+    <div class="sw"><i style="--c:var(--ok)"></i>Resolved</div>
+    <div class="sw"><i style="--c:var(--bg)"></i>Canvas</div>
+  </div>
+</section>
+
+<section id="theming">
+  <div class="sec-head"><span class="eyebrow">Theme context and switching</span><h2>One set of tokens, three theme states, and drift checks in both themes.</h2></div>
+  <div class="theme-grid">
+    <div>
+      <p>The app offers <b>Light</b>, <b>Dark</b> and <b>System</b>. System follows the operating system and is the default. A React <span class="mono">ThemeContext</span> holds the choice, works out the actual theme, and writes it to <span class="mono">&lt;html data-theme&gt;</span>. Every component reads colours only from CSS tokens, so switching themes never re-renders component styles.</p>
+      <ul>
+        <li><b>No flash on load:</b> a tiny inline script in <span class="mono">&lt;head&gt;</span> applies the saved theme before the first paint.</li>
+        <li><b>Saved per user:</b> the choice is kept in <span class="mono">localStorage</span>, and also in the user's profile in Postgres so it follows them across devices.</li>
+        <li><b>Fixed meaning in both themes:</b> blue = design, amber = build, rose = drift. Each is tuned per theme to keep AA contrast.</li>
+        <li><b>Theme-aware drift:</b> each Deployxa preview is captured twice, in light and dark (Playwright <span class="mono">colorScheme</span>). Each capture is compared to the matching Figma variable mode, so a dark-mode-only colour bug becomes its own ticket.</li>
+      </ul>
+      <p class="theme-note">This page uses the same pattern. Try the Light / Dark / System switch at the top.</p>
+    </div>
+<pre><span class="c">// app/theme-provider.tsx</span>
+<span class="k">type</span> Choice = <span class="s">'light'</span> | <span class="s">'dark'</span> | <span class="s">'system'</span>;
+<span class="k">const</span> ThemeCtx = createContext&lt;{
+  choice: Choice; resolved: <span class="s">'light'</span>|<span class="s">'dark'</span>;
+  setChoice: (c: Choice) =&gt; <span class="k">void</span>;
+} | <span class="k">null</span>&gt;(<span class="k">null</span>);
+
+<span class="k">export function</span> ThemeProvider({ children }) {
+  <span class="k">const</span> [choice, setChoice] = useState&lt;Choice&gt;(
+    () =&gt; (safeGet(<span class="s">'dd-theme'</span>) <span class="k">as</span> Choice) ?? <span class="s">'system'</span>);
+  <span class="k">const</span> osDark = useMediaQuery(<span class="s">'(prefers-color-scheme: dark)'</span>);
+  <span class="k">const</span> resolved = choice === <span class="s">'system'</span>
+    ? (osDark ? <span class="s">'dark'</span> : <span class="s">'light'</span>) : choice;
+
+  useEffect(() =&gt; {
+    <span class="k">const</span> root = document.documentElement;
+    choice === <span class="s">'system'</span>
+      ? root.removeAttribute(<span class="s">'data-theme'</span>)
+      : root.setAttribute(<span class="s">'data-theme'</span>, choice);
+    safeSet(<span class="s">'dd-theme'</span>, choice);
+  }, [choice]);
+
+  <span class="k">return</span> &lt;ThemeCtx.Provider value={{ choice, resolved, setChoice }}&gt;
+    {children}&lt;/ThemeCtx.Provider&gt;;
+}
+<span class="k">export const</span> useTheme = () =&gt; useContext(ThemeCtx)!;</pre>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Accessibility</span><h2>Inclusive by construction.</h2></div>
+  <div class="two">
+    <ul style="margin:0;padding-left:18px;display:grid;gap:8px">
+      <li>Every visual pin is mirrored in a text list that a keyboard and screen reader can use.</li>
+      <li>Drift is never signalled by colour alone: each flag has a number, shape and label.</li>
+      <li>The opacity slider and mode switch are native controls with visible focus.</li>
+    </ul>
+    <ul style="margin:0;padding-left:18px;display:grid;gap:8px">
+      <li>Text meets WCAG AA contrast in both light and dark themes.</li>
+      <li>Animation is turned off for users who set reduced motion.</li>
+      <li>The tool also flags contrast drift: a build colour that fails AA where the design passed.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="claude-code">
+  <div class="sec-head"><span class="eyebrow">Build plan · Claude Code</span><h2>Building it in 9 days with Claude Code.</h2>
+    <p style="color:var(--muted)">This case study is the spec. Claude Code does most of the build in a Git repo connected to Deployxa. You stay the reviewer and design owner.</p></div>
+
+  <div class="setup">
+    <div>
+      <h3>1 · Put this case study in the repo</h3>
+      <p style="font-size:.93rem;color:var(--muted)">Claude Code can't open private claude.ai links. Save this page's content as <span class="mono">docs/SPEC.md</span> and reference it in prompts with <span class="mono">@docs/SPEC.md</span>. Run <span class="mono">/init</span>, then add the project rules to <span class="mono">CLAUDE.md</span>.</p>
+<pre><span class="c"># CLAUDE.md</span>
+Product spec: @docs/SPEC.md
+Stack: Next.js (App Router) + TypeScript, Drizzle + Postgres,
+       Playwright (capture), pixelmatch (diff)
+Rules:
+- Colours ONLY via CSS tokens in app/tokens.css (light + dark)
+- Semantic colours: design=blue, build=amber, drift=rose
+- Every visual pin has a text-list twin (a11y)
+- Secrets via env vars only: FIGMA_TOKEN, DATABASE_URL
+- Run `npm run lint && npm run typecheck` before finishing</pre>
+    </div>
+    <div>
+      <h3>2 · Connect tools</h3>
+      <p style="font-size:.93rem;color:var(--muted)">Add the Figma MCP server so Claude Code reads frames, variables and modes directly. Add a hook that runs lint and typecheck after edits. Use plan mode (<span class="mono">Shift+Tab</span>) before each phase.</p>
+<pre><span class="c"># terminal</span>
+npx create-next-app@latest drift-detector --ts
+cd drift-detector &amp;&amp; git init
+claude mcp add --transport http figma \
+  https://mcp.figma.com/mcp
+claude
+<span class="c">&gt; /init</span>
+<span class="c">&gt; [plan mode] Read @docs/SPEC.md and propose
+  a phased implementation plan. Don't write code yet.</span></pre>
+    </div>
+  </div>
+
+  <div class="phases">
+    <div class="phase"><div class="when"><span class="days">Day 1–2</span><b>Research + design</b></div><div class="body">
+      <p>Run the 5 interviews and finish the Figma file. Set up light and dark variable modes and components for the 4 screens.</p>
+      <div class="chips"><span class="chip">Figma</span><span class="chip cc">Claude: interview synthesis</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 3</span><b>Tokens + theme</b></div><div class="body">
+<pre><span class="c">&gt;</span> Using the Figma MCP, pull the variables from the Drift Detector file
+  (Light and Dark modes) into app/tokens.css. Build ThemeProvider
+  with light/dark/system per the Theming section of @docs/SPEC.md, a no-flash
+  head script, and a ThemeSwitch segmented control.</pre>
+      <div class="chips"><span class="chip cc">Figma MCP</span><span class="chip cc">plan mode</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 4–5</span><b>Overlay inspector</b></div><div class="body">
+<pre><span class="c">&gt;</span> Build the Overlay inspector screen from the Figma frame: opacity
+  slider, Overlay/Difference/Side-by-side modes, numbered drift pins
+  plus a keyboard-accessible pin list. Use sample images first.</pre>
+      <div class="chips"><span class="chip cc">Figma MCP · design to code</span><span class="chip">React</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 5–6</span><b>Capture + diff engine</b></div><div class="body">
+<pre><span class="c">&gt;</span> Add a /api/captures worker: given a preview URL and route, screenshot
+  it with Playwright at 375/768/1440 widths in light AND dark
+  colorScheme; export the matching Figma frame per mode via the Figma
+  REST images API; run pixelmatch; cluster diff regions into drift
+  pins with bounding boxes. Write tests with fixture images.</pre>
+      <div class="chips"><span class="chip">Playwright</span><span class="chip">pixelmatch</span><span class="chip cc">tests first</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 6–7</span><b>Data + Deployxa</b></div><div class="body">
+<pre><span class="c">&gt;</span> Create a Drizzle schema: projects, routes, captures (url, commit, theme,
+  breakpoint), drifts (expected, actual, bbox, status), signoffs.
+  Generate migrations. Read DATABASE_URL from env. Add a health route.</pre>
+      <p>Then in Deployxa, connect the GitHub repo, attach managed Postgres, and add <span class="mono">FIGMA_TOKEN</span> and <span class="mono">DATABASE_URL</span> as encrypted environment variables. Turn on preview deploys for pull requests. From then on, each pull request Claude Code opens gets its own preview URL, which Drift Detector can check against its own design.</p>
+      <div class="chips"><span class="chip dx">Deployxa Git deploy</span><span class="chip dx">Postgres</span><span class="chip dx">secrets</span><span class="chip dx">PR previews</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 8</span><b>Tickets, sign-off, polish</b></div><div class="body">
+<pre><span class="c">&gt;</span> Build Project board, Drift ticket and Sign-off report screens. Add
+  empty, loading and error states. Then run an accessibility review of
+  every screen in both themes and fix issues below WCAG AA.</pre>
+      <div class="chips"><span class="chip cc">subagent: a11y reviewer</span><span class="chip cc">/review</span></div></div></div>
+
+    <div class="phase"><div class="when"><span class="days">Day 9</span><b>Ship + submit</b></div><div class="body">
+      <p>Merge to main and Deployxa deploys production. Record the demo: open a pull request that changes a padding, watch the preview get flagged, fix it, sign off. Then submit the live URL and this case study to Devpost.</p>
+      <div class="chips"><span class="chip dx">production deploy</span><span class="chip dx">one-click rollback</span><span class="chip">Devpost</span></div></div></div>
+  </div>
+
+  <div class="risk">
+    <h3>Risks and fallbacks</h3>
+    <ul>
+      <li><b>Chromium on the host:</b> if Playwright can't run in Deployxa's Node runtime, put the capture worker in its own container service. Deployxa lists multi-container apps.</li>
+      <li><b>Automatic triggering:</b> if Deployxa doesn't expose deploy events, take the preview URL from the pull request or let users paste it.</li>
+      <li><b>Scope:</b> pixel diff and pins are the MVP. Matching each mismatch to an exact style value (padding, font weight) is a stretch goal.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="eyebrow">Success targets</span><h2>How we'll know it works.</h2></div>
+  <div class="metrics">
+    <div class="metric"><span class="v">Faster QA</span><p>Time from preview deploy to designer sign-off, measured in a timed comparison against a manual review in usability tests.</p></div>
+    <div class="metric"><span class="v">Fewer rounds</span><p>Design QA back-and-forth per feature, with drift resolved before merge instead of after release.</p></div>
+    <div class="metric"><span class="v">Exact feedback</span><p>Share of tickets that carry an expected and an actual value, so developers rarely need to ask.</p></div>
+  </div>
+</section>
+
+<footer>Drift Detector concept case study for Hyperbloom October UI/UX & Web Design 2026, with integration for sponsor Deployxa. The overlay demo uses sample data.</footer>
+</div>
+
+<script>
+(function(){
+  var stage=document.getElementById('stage'),build=document.getElementById('build'),op=document.getElementById('opacity');
+  function setOp(){build.style.opacity=op.value/100}
+  op.addEventListener('input',setOp);setOp();
+  var mo=document.getElementById('m-overlay'),md=document.getElementById('m-diff');
+  function mode(diff){stage.classList.toggle('diff',diff);mo.setAttribute('aria-pressed',!diff);md.setAttribute('aria-pressed',diff);
+    if(diff){op.value=100;setOp()}}
+  mo.addEventListener('click',function(){mode(false)});md.addEventListener('click',function(){mode(true)});
+  document.getElementById('pins-toggle').addEventListener('change',function(e){stage.classList.toggle('show-pins',e.target.checked)});
+  var items=document.querySelectorAll('#drift-list li'),pins=document.querySelectorAll('.pin');
+  function select(i){items.forEach(function(li){li.classList.toggle('active',li.dataset.i===i)});
+    pins.forEach(function(p){p.setAttribute('aria-pressed',p.dataset.i===i)})}
+  pins.forEach(function(p){p.addEventListener('click',function(){select(p.dataset.i)})});
+  items.forEach(function(li){li.addEventListener('mouseenter',function(){select(li.dataset.i)})});
+  select('2');
+  var KEY='dd-theme',root=document.documentElement,btns=document.querySelectorAll('[data-theme-set]');
+  function applyTheme(t){if(t==='system')root.removeAttribute('data-theme');else root.setAttribute('data-theme',t);
+    btns.forEach(function(b){b.setAttribute('aria-pressed',b.dataset.themeSet===t)});try{localStorage.setItem(KEY,t)}catch(e){}}
+  var saved='system';try{saved=localStorage.getItem(KEY)||'system'}catch(e){}
+  applyTheme(saved);
+  btns.forEach(function(b){b.addEventListener('click',function(){applyTheme(b.dataset.themeSet)})});
+})();
+</script>
+
+</body>
+</html>

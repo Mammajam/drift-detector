@@ -1,0 +1,16 @@
+.box {
+  width: 100%;
+}
+
+.sized {
+  position: relative;
+  margin: 0 auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}

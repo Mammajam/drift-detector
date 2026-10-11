@@ -1,0 +1,20 @@
+.spec {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.expected {
+  color: var(--color-design);
+}
+
+.actual {
+  color: var(--color-build-text);
+}
+
+.arrow {
+  color: var(--color-muted);
+}
