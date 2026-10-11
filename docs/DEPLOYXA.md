@@ -3,6 +3,13 @@
 Phase 4 checklist. The code side is done; the dashboard steps below are yours (they involve your GitHub
 account and secrets). Deployxa's exact UI wording may differ from what is written here.
 
+> **Verified on Deployxa (Oct 11):** the project is live at `https://drift-detector-app.deployxa.online`, `/api/health`
+> returns `{"status":"ok","database":"ok"}`, and Deployxa's managed PostgreSQL is injected as `DATABASE_URL`.
+> Deployxa's **GitHub import** tab stored the repo URL as `https://github.com/undefined`; use the **Git URL** tab
+> (`https://github.com/Mammajam/drift-detector.git`) instead. Project: 0.5 CPU, 512 MB RAM, Node 20 builder.
+> Migrations run automatically on server start in production (`src/instrumentation.ts`); set `RUN_MIGRATIONS_ON_START=0` to disable.
+> Preview/app hosts end in `.deployxa.online`, so `PREVIEW_HOST_SUFFIXES=.deployxa.online`.
+
 ## 1. Push the repo
 ```bash
 git init && git add -A && git commit -m "chore: scaffold"
@@ -31,7 +38,7 @@ Add as **encrypted** variables, for both Production and Preview environments.
 | `DATABASE_URL` | connection string from managed Postgres | server only |
 | `FIGMA_TOKEN` | Figma personal access token | server only; never `NEXT_PUBLIC_` |
 | `PLAYWRIGHT_BROWSERS_PATH` | `0` | so the runtime finds the Chromium installed at build time |
-| `PREVIEW_HOST_SUFFIXES` | e.g. `.deployxa.app` | **confirm the real preview host pattern**; the capture worker refuses any other host |
+| `PREVIEW_HOST_SUFFIXES` | `.deployxa.online` | the capture worker refuses any other host (confirm the PR preview host also ends this way) |
 | `PROJECT_NAME` | optional, default `Drift Detector` | groups routes into a project |
 | `DB_POOL_MAX` | optional, default `5` | lower it if the managed Postgres has a small connection cap |
 | `ENABLE_LIVE_INSPECTOR` | leave unset | live and stored data views stay off in production until sign-in exists (Phase 5) |
