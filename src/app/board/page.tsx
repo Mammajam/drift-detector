@@ -5,12 +5,33 @@ import { RouteBuilds } from "@/components/board/RouteBuilds";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import buttons from "@/components/ui/buttons.module.css";
-import { getSession } from "@/server/auth";
+import { getSession, signInEnabled } from "@/server/auth";
 import { dbOrNull, projectName } from "@/server/data";
 import { getBoard } from "@/server/db/queries";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
+
+/** What to offer on an empty board: load demo data, sign in first, or nothing when sign-in doesn't exist. */
+function emptyAction(signedIn: boolean, canSignIn: boolean) {
+  if (signedIn) {
+    return (
+      <form action={loadDemoData}>
+        <button type="submit" className={buttons.primary}>
+          Load demo data
+        </button>
+      </form>
+    );
+  }
+  if (canSignIn) {
+    return (
+      <Link href="/login?next=/board" className={buttons.primary}>
+        Sign in to load demo data
+      </Link>
+    );
+  }
+  return undefined;
+}
 export const metadata: Metadata = { title: "Project board · Drift Detector" };
 
 export default async function BoardPage() {
@@ -43,26 +64,20 @@ export default async function BoardPage() {
     return (
       <>
         <PageHeader title="Project board" />
-        <EmptyState
-          title="No routes yet"
-          action={
-            session ? (
-              <form action={loadDemoData}>
-                <button type="submit" className={buttons.primary}>
-                  Load demo data
-                </button>
-              </form>
-            ) : (
-              <Link href="/login?next=/board" className={buttons.primary}>
-                Sign in to load demo data
-              </Link>
-            )
-          }
-        >
+        <EmptyState title="No routes yet" action={emptyAction(Boolean(session), signInEnabled())}>
           <p>
-            Run a capture with <code>POST /api/captures</code> to add a route and its first preview build, or load a
-            small demo project to explore the board, tickets and sign-off report.
+            Run a capture with <code>POST /api/captures</code> to add a route and its first preview build.
           </p>
+          {session ? (
+            <p>Or load the demo project to explore the board, tickets and sign-off report.</p>
+          ) : signInEnabled() ? (
+            <p>Sign in to load a small demo project, or to run captures.</p>
+          ) : (
+            <p>
+              Sign-in isn&apos;t set up on this deployment, so demo data can&apos;t be loaded from here. Set{" "}
+              <code>SEED_DEMO_ON_START=1</code> and redeploy to load it on start.
+            </p>
+          )}
         </EmptyState>
       </>
     );

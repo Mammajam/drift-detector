@@ -34,18 +34,21 @@ git remote add origin <your-repo-url> && git push -u origin main
 Attach it to the project; Deployxa should provide a connection string. Use it as `DATABASE_URL` below.
 
 ## 4. Environment variables
+> **Editing tip:** in Deployxa's table view, saving re-sends masked placeholders for rows you didn't edit, which can overwrite
+> their real values. Use **Bulk edit** and type every `NAME=value` line out in full.
+
 Add as **encrypted** variables, for both Production and Preview environments.
 
 | Name | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | connection string from managed Postgres | server only |
+| `DATABASE_URL` | **do not add it** | Deployxa injects it when the managed PostgreSQL is attached. A value you add yourself may override the real one and break the database. |
 | `FIGMA_TOKEN` | Figma personal access token | server only; never `NEXT_PUBLIC_` |
 | `PLAYWRIGHT_BROWSERS_PATH` | `0` | so the runtime finds the Chromium installed at build time |
 | `PREVIEW_HOST_SUFFIXES` | `.deployxa.online` | the capture worker refuses any other host (confirm the PR preview host also ends this way) |
 | `PROJECT_NAME` | optional, default `Drift Detector` | groups routes into a project |
 | `DB_POOL_MAX` | optional, default `5` | lower it if the managed Postgres has a small connection cap |
 | `APP_PASSCODE` | a passphrase you choose | **secret.** Enables sign-in. Without it, production stays read-only (nobody can change statuses, sign off or run captures) |
-| `AUTH_SECRET` | optional long random string | **secret.** Signs session cookies; defaults to `APP_PASSCODE` |
+| `AUTH_SECRET` | long random string (`openssl rand -base64 32`) | **secret.** Signs session cookies. The name must use an **underscore**; `AUTH-SECRET` is ignored. Deployxa generates a new one on every deploy if you don't set your own, which signs everyone out. |
 | `CAPTURE_API_TOKEN` | optional long random string | **secret.** Lets CI call `POST /api/captures` with `Authorization: Bearer …` |
 | `SEED_DEMO_ON_START` | `1` (optional) | loads the demo project into an empty database on server start, so the board isn't empty for visitors |
 | `DEPLOYXA_ROLLBACK_URL` | optional | where "Roll back on Deployxa" points; defaults to `https://deployxa.com/dashboard/deployments` |
