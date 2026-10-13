@@ -19,10 +19,13 @@ export const passcodeMatches = (input: string) => {
 };
 
 export async function getSession(): Promise<Session | null> {
+  // Read cookies first, in every environment. Otherwise a build without secrets would prerender pages as static
+  // (the header calls this), and they would then fail at runtime once a passcode exists.
+  const jar = await cookies();
   if (openForDev()) return { name: "Local dev", exp: Number.MAX_SAFE_INTEGER };
   const key = secret();
   if (!key) return null;
-  return verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value, key);
+  return verifySessionToken(jar.get(SESSION_COOKIE)?.value, key);
 }
 
 /** For server actions and protected pages: the session, or a redirect to /login. */
