@@ -2,7 +2,7 @@
   display: grid;
   gap: var(--space-4);
   max-width: 48rem;
-  padding-block: var(--space-7);
+  padding-block: var(--space-6);
 }
 
 .eyebrow {
