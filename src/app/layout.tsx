@@ -8,6 +8,8 @@ import "./globals.css";
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
   subsets: ["latin"],
+  // Optical sizing: large headlines use the tighter display cut, as drawn in the Figma design.
+  axes: ["opsz"],
 });
 
 const figtree = Figtree({
