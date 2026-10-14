@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makePng } from "./__fixtures__/png";
-import { CAPTURE_DIFF, diffImages, regionsToDrifts } from "./diff";
+import { CAPTURE_DIFF, diffImages, regionsToDrifts, type DiffResult } from "./diff";
 
 const WHITE: [number, number, number] = [255, 255, 255];
 const BLUE: [number, number, number] = [47, 91, 234];
@@ -163,5 +163,48 @@ describe("tolerant comparison (CAPTURE_DIFF)", () => {
     );
     expect(drift.label).toContain("Mismatch");
     expect(drift.expected).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe("reflowed content (same average colour, no clean shift)", () => {
+  // Stripes of different widths: the same average colour on both sides, and no shift that lines them up.
+  const stripes = (period: number) =>
+    Array.from({ length: Math.floor(80 / period) }, (_, i) => ({ x: 20 + i * period, y: 20, w: period / 2, h: 40, color: BLUE }));
+  const design = makePng(140, 80, WHITE, stripes(8));
+  const build = makePng(140, 80, WHITE, stripes(6));
+
+  it("never reports a spec that reads the same on both sides", () => {
+    const drifts = regionsToDrifts(diffImages(design, build, { estimateShift: true }));
+    expect(drifts.length).toBeGreaterThan(0);
+    expect(drifts[0].label).toMatch(/Content differs|Layout changed/);
+    for (const d of drifts) expect(d.expected).not.toBe(d.actual);
+  });
+
+  it("describes a reflow by the size of the content on each side", () => {
+    const base: DiffResult = { width: 200, height: 100, mismatchRatio: 0.1, score: 100, regions: [] };
+    const region = { x: 10, y: 10, w: 100, h: 50, pixels: 1000, expectedColor: "#cccdd2", actualColor: "#cccdd2" };
+    const [d] = regionsToDrifts({
+      ...base,
+      regions: [{ ...region, layout: { expected: { w: 100, h: 40 }, actual: { w: 100, h: 62 } } }],
+    });
+    expect(d.label).toContain("Layout changed");
+    expect([d.expected, d.actual]).toEqual(["100×40", "100×62"]);
+  });
+
+  it("falls back to the share of changed pixels when the content has the same extent", () => {
+    const base: DiffResult = { width: 200, height: 100, mismatchRatio: 0.1, score: 100, regions: [] };
+    const region = { x: 10, y: 10, w: 100, h: 50, pixels: 1000, expectedColor: "#cccdd2", actualColor: "#cccdd2" };
+    const [d] = regionsToDrifts({
+      ...base,
+      regions: [{ ...region, layout: { expected: { w: 100, h: 40 }, actual: { w: 101, h: 40 } } }],
+    });
+    expect(d.label).toContain("Content differs");
+    expect([d.expected, d.actual]).toEqual(["0%", "20%"]);
+  });
+
+  it("keeps a real colour change as a colour spec", () => {
+    const [d] = regionsToDrifts(diffImages(makePng(200, 120, WHITE, card(BLUE)), makePng(200, 120, WHITE, card(AMBER)), CAPTURE_DIFF));
+    expect(d.expected).toMatch(/^#[0-9a-f]{6}$/);
+    expect(d.actual).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

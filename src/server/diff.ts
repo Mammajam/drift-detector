@@ -15,6 +15,11 @@ export type DiffRegion = {
   actualColor: string;
   /** Where the build's content sits relative to the design (px), when the region is mostly a shifted copy. */
   shift?: { dx: number; dy: number };
+  /**
+   * Set when nothing moved by a clean shift and the mean colours match, so the change is in the layout or content
+   * (a text reflow, say). `expected`/`actual` are the extents of the non-background pixels in the region.
+   */
+  layout?: { expected: { w: number; h: number }; actual: { w: number; h: number } };
 };
 
 export type DiffResult = {
@@ -179,6 +184,45 @@ function meanColor(data: Uint8Array, width: number, r: Pick<DiffRegion, "x" | "y
   return `#${hex(red)}${hex(green)}${hex(blue)}`;
 }
 
+const parseHex = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/** Two mean colours are "the same" when no channel differs by more than a few levels. */
+const COLOR_TOLERANCE = 6;
+function colorsMatch(a: string, b: string): boolean {
+  const [pa, pb] = [parseHex(a), parseHex(b)];
+  return pa.every((v, i) => Math.abs(v - pb[i]) <= COLOR_TOLERANCE);
+}
+
+/** Size of the box around the pixels that differ from the region's dominant (background) colour, or null if none. */
+function inkExtent(data: Uint8Array, width: number, r: Pick<DiffRegion, "x" | "y" | "w" | "h">): { w: number; h: number } | null {
+  const buckets = new Map<number, number>();
+  const key = (i: number) => ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+  for (let y = r.y; y < r.y + r.h; y++) {
+    for (let x = r.x; x < r.x + r.w; x++) {
+      const k = key((y * width + x) * 4);
+      buckets.set(k, (buckets.get(k) ?? 0) + 1);
+    }
+  }
+  const top = [...buckets.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (top === undefined) return null;
+  const bg = [((top >> 8) & 15) * 16 + 8, ((top >> 4) & 15) * 16 + 8, (top & 15) * 16 + 8];
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = r.y; y < r.y + r.h; y++) {
+    for (let x = r.x; x < r.x + r.w; x++) {
+      const i = (y * width + x) * 4;
+      if (Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1]) + Math.abs(data[i + 2] - bg[2]) <= 96) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  return x1 < 0 ? null : { w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
 /**
  * Pixel-diffs a build screenshot against a design frame (both PNG), then clusters the changed
  * pixels into bounding boxes. The design's size is the reference; the build is cropped or padded to it.
@@ -270,11 +314,18 @@ export function diffImages(designPng: Buffer, buildPng: Buffer, options: DiffOpt
         h: Math.min(height, box.y + box.h + margin) - Math.max(0, box.y - margin),
       };
       const shift = estimateShift ? findShift(designData, buildData, width, height, around) : null;
+      const expectedColor = meanColor(designData, width, box);
+      const actualColor = meanColor(buildData, width, box);
+      // Same average colour and no clean shift: the content moved or reflowed. A colour spec would read "x → x".
+      const [ink, inkBuild] = !shift && colorsMatch(expectedColor, actualColor)
+        ? [inkExtent(designData, width, box), inkExtent(buildData, width, box)]
+        : [null, null];
       return {
         ...box,
-        expectedColor: meanColor(designData, width, box),
-        actualColor: meanColor(buildData, width, box),
+        expectedColor,
+        actualColor,
         ...(shift ? { shift } : {}),
+        ...(ink && inkBuild ? { layout: { expected: ink, actual: inkBuild } } : {}),
       };
     });
 
@@ -291,20 +342,28 @@ export function diffImages(designPng: Buffer, buildPng: Buffer, options: DiffOpt
 /** Pixel regions become drift pins. A shifted block reads as where it moved; otherwise the mean colours are the spec. */
 export function regionsToDrifts(result: DiffResult): Drift[] {
   return result.regions.map((r, i) => {
-    const moved = r.shift ? describeShift(r.shift) : null;
-    return {
-      id: `d${i + 1}`,
-      label: moved ? `${moved} · ${r.w}×${r.h} at ${r.x},${r.y}` : `Mismatch ${i + 1} · ${r.w}×${r.h} at ${r.x},${r.y}`,
-      expected: r.shift ? `${r.x},${r.y}` : r.expectedColor,
-      actual: r.shift ? `${r.x + r.shift.dx},${r.y + r.shift.dy}` : r.actualColor,
-      bbox: {
-        x: r.x / result.width,
-        y: r.y / result.height,
-        w: r.w / result.width,
-        h: r.h / result.height,
-      },
-      status: "open" as const,
+    const at = `${r.w}×${r.h} at ${r.x},${r.y}`;
+    const bbox = {
+      x: r.x / result.width,
+      y: r.y / result.height,
+      w: r.w / result.width,
+      h: r.h / result.height,
     };
+    const base = { id: `d${i + 1}`, bbox, status: "open" as const };
+    if (r.shift) {
+      return { ...base, label: `${describeShift(r.shift)} · ${at}`, expected: `${r.x},${r.y}`, actual: `${r.x + r.shift.dx},${r.y + r.shift.dy}` };
+    }
+    if (r.layout) {
+      const { expected: e, actual: a } = r.layout;
+      const size = (v: { w: number; h: number }) => `${v.w}×${v.h}`;
+      // A different extent is a reflow or resize; the same extent means content inside changed.
+      if (Math.abs(e.w - a.w) >= 2 || Math.abs(e.h - a.h) >= 2) {
+        return { ...base, label: `Layout changed · ${at}`, expected: size(e), actual: size(a) };
+      }
+      const share = Math.min(100, Math.max(1, Math.round((r.pixels / (r.w * r.h)) * 100)));
+      return { ...base, label: `Content differs · ${at}`, expected: "0%", actual: `${share}%` };
+    }
+    return { ...base, label: `Mismatch ${i + 1} · ${at}`, expected: r.expectedColor, actual: r.actualColor };
   });
 }
 

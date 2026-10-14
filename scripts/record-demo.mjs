@@ -9,7 +9,7 @@
 // Output: demo-silent.webm, narration.wav/.m4a (timed to the video), transcript.md.
 // The narration is macOS text-to-speech; joining audio and video needs ffmpeg (see transcript.md).
 import { chromium } from "playwright";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -115,6 +115,52 @@ function speak(id, text) {
   return { wav, ms: Math.round((data.length / (fmt.rate * fmt.ch * (fmt.bits / 8))) * 1000) };
 }
 
+const LEAD_MS = 250; // the narration starts this long after its segment's first frame (voice.mjs places takes the same way)
+const VOICE_DIR = path.join(OUT, "voice");
+const USE_OWN_VOICE = process.env.OWN_VOICE !== "0" && fs.existsSync(VOICE_DIR) && fs.readdirSync(VOICE_DIR).some((f) => /^\d\d-.*\.(wav|m4a|mp3)$/.test(f));
+const TRIM = "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.1,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.1,areverse";
+
+/** Your own take for segment `index` (files are named NN-anything.wav), trimmed to the speech. */
+function ownTake(index) {
+  const prefix = String(index + 1).padStart(2, "0") + "-";
+  const file = fs.readdirSync(VOICE_DIR).find((f) => f.startsWith(prefix) && /\.(wav|m4a|mp3)$/.test(f));
+  if (!file) throw new Error(`No take for segment ${index + 1} in ${VOICE_DIR}`);
+  const wav = path.join(tmp, `own-${prefix}.wav`);
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", path.join(VOICE_DIR, file), "-ac", "1", "-ar", "22050", "-af", TRIM, wav]);
+  return wav;
+}
+
+/** Length of a wav, and the moments inside it where speech resumes after a pause (sentence and clause boundaries). */
+function analyse(wav) {
+  const { fmt, data } = readWav(wav);
+  const ms = Math.round((data.length / (fmt.rate * fmt.ch * (fmt.bits / 8))) * 1000);
+  const probe = spawnSync("ffmpeg", ["-hide_banner", "-i", wav, "-af", "silencedetect=noise=-42dB:d=0.2", "-f", "null", "-"], { encoding: "utf8" });
+  const resumes = [...probe.stderr.matchAll(/silence_end: ([0-9.]+)/g)].map((m) => Math.round(Number(m[1]) * 1000));
+  return { wav, ms, resumes };
+}
+
+/**
+ * Returns cue(target): waits until that part of the narration is being spoken. `target` is a sentence number (0 = first)
+ * or a phrase from the text. The moment is estimated from the text's share of the speech, then snapped to the nearest pause.
+ */
+function makeCue(seg, voice, startMs, clock) {
+  const sentences = seg.text.split(/(?<=[.!?])\s+/);
+  return async (target) => {
+    if (!voice?.ms) return;
+    const at =
+      typeof target === "number"
+        ? sentences.slice(0, target).join(" ").length + (target > 0 ? 1 : 0)
+        : seg.text.indexOf(target);
+    if (at < 0) throw new Error(`cue phrase not in narration: ${target}`);
+    let t = (at / seg.text.length) * voice.ms;
+    const near = voice.resumes?.reduce((best, r) => (Math.abs(r - t) < Math.abs(best - t) ? r : best), Infinity);
+    if (near !== undefined && Math.abs(near - t) <= (typeof target === "number" ? 700 : 500)) t = near;
+    const wait = startMs + LEAD_MS + t - clock();
+    if (wait > 0) await sleep(wait);
+    else if (wait < -700) console.log(`   ⚠ cue "${String(target).slice(0, 28)}" is ${(-wait / 1000).toFixed(1)}s late (the previous actions ran long)`);
+  };
+}
+
 function writeTimeline(parts, totalMs, file) {
   const rate = 22050;
   const bytesPerMs = (rate * 2) / 1000;
@@ -148,42 +194,46 @@ const segments = [
   {
     id: "landing",
     text: "This is Drift Detector. It lays the Figma frame over every Deployxa preview build, flags each spacing, type and colour mismatch, and turns it into a fix ticket. What you're seeing is the live app, running on Deployxa.",
-    run: async (page) => {
+    run: async (page, cue) => {
       await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-      await sleep(1500);
+      await cue(1);
       await glide(page, byRole(page, "link", "Open the overlay inspector"));
-      await sleep(1200);
+      await cue(2);
       await glide(page, byRole(page, "link", "View the project board"));
     },
   },
   {
     id: "board",
     text: "The project board lists every route against its preview builds. Each build shows a drift score as a shape, a word and a number, so it never relies on colour alone, plus how many drifts are open and who signed it off. The builds here are sample data, seeded for this demo.",
-    run: async (page) => {
+    run: async (page, cue) => {
       await click(page, byRole(page, "link", "View the project board"), 1500);
       await page.waitForURL(/\/board$/);
-      await sleep(2500);
+      await cue(1);
       await scrollBy(page, 360, 14);
-      await sleep(2500);
+      await cue("plus how many drifts");
       await scrollBy(page, 360, 14);
+      await cue(2);
     },
   },
   {
     id: "inspector",
     text: "Opening a build in the inspector. The overlay blends the Figma frame with the live build, and a slider moves between them. Difference mode highlights only what changed. Side by side shows both. Numbered pins mark each drift, and every pin has a twin in this list.",
-    run: async (page) => {
+    run: async (page, cue) => {
       await click(page, page.getByRole("link", { name: /Inspect .* of \/pricing/ }).first(), 1500);
       await page.waitForURL(/\/inspector/);
       await page.getByRole("slider").waitFor();
-      await sleep(1500);
+      await cue(1);
       const slider = page.getByRole("slider");
       await glide(page, slider);
       await slider.focus();
       await press(page, "Home", 1, 300);
-      for (let i = 0; i < 80; i++) await press(page, "ArrowRight", 1, 22);
-      await press(page, "ArrowLeft", 45, 22);
-      await click(page, byRole(page, "button", "Difference"), 1800);
-      await click(page, byRole(page, "button", "Side-by-side"), 2200);
+      for (let i = 0; i < 30; i++) await press(page, "ArrowRight", 1, 15);
+      await press(page, "ArrowLeft", 18, 15);
+      await cue(2);
+      await click(page, byRole(page, "button", "Difference"), 300);
+      await cue(3);
+      await click(page, byRole(page, "button", "Side-by-side"), 300);
+      await cue(4);
       await click(page, byRole(page, "button", "Overlay"), 900);
       await click(page, page.getByRole("button", { name: /^Drift 1:/ }), 1500);
     },
@@ -191,13 +241,15 @@ const segments = [
   {
     id: "keyboard",
     text: "Everything works from the keyboard. Arrow keys move through the drifts, Enter selects one, and the pin and the list stay in sync. Each capture also comes in light and dark, so a dark mode only bug becomes its own ticket.",
-    run: async (page) => {
+    run: async (page, cue) => {
       const items = page.getByRole("list", { name: "Drifts" }).getByRole("button");
       await items.first().focus();
+      await cue("Arrow keys");
       await press(page, "ArrowDown", 1, 900);
-      await press(page, "Enter", 1, 1500);
+      await press(page, "Enter", 1, 1200);
       await press(page, "ArrowDown", 1, 900);
-      await press(page, "Enter", 1, 1500);
+      await press(page, "Enter", 1, 800);
+      await cue(2);
       await click(page, page.getByRole("group", { name: "Capture theme" }).getByRole("button", { name: "Dark" }), 2200);
       await click(page, page.getByRole("group", { name: "Capture theme" }).getByRole("button", { name: "Light" }), 1200);
       await click(page, page.getByRole("button", { name: /^Drift 1:/ }), 1000);
@@ -206,28 +258,27 @@ const segments = [
   {
     id: "ticket",
     text: "Each drift becomes a ticket with the exact expected and actual values in monospace, the design token, the region in pixels, the pull request, and cropped evidence from the design and from the build.",
-    run: async (page) => {
+    run: async (page, cue) => {
       await click(page, page.getByRole("link", { name: /Open ticket for drift 1/ }).first(), 1500);
       await page.waitForURL(/\/drifts\//);
-      await sleep(3000);
+      await cue("the design token");
       await scrollBy(page, 420, 16);
-      await sleep(3500);
+      await cue("cropped evidence");
     },
   },
   {
     id: "report",
     text: "The sign off report groups drifts as open, fixed or won't fix. A build can only be approved once nothing is open, and approval records who signed it off. If production goes wrong, the report links to Deployxa's rollback.",
-    run: async (page) => {
+    run: async (page, cue) => {
       // The breadcrumb sits under the sticky header once the ticket is scrolled, so return to the top first.
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
-      await sleep(1500);
-      await click(page, page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").nth(1), 1500);
+      await sleep(800);
+      await click(page, page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").nth(1), 1000);
       await page.waitForURL(/\/report\//);
-      await sleep(3000);
+      await cue("A build can only");
       await glide(page, page.getByRole("heading", { name: "Approval" }));
-      await sleep(2500);
+      await cue(2);
       await glide(page, page.getByRole("link", { name: /Roll back on Deployxa/ }));
-      await sleep(1500);
     },
   },
   ...(REAL_CAPTURE
@@ -239,22 +290,23 @@ const segments = [
             await page.goto(captureUrl(PR_BUILD, "1440,375"), { waitUntil: "domcontentloaded" });
             await page.getByRole("slider").waitFor({ timeout: 120000 });
             await hideDevBadge(page);
-            await sleep(1500);
           },
         },
         {
           id: "capture-result",
           text: "And there is the drift. The score jumps, and the hero block is flagged as pins, each with its size and position. Difference mode shows exactly what moved, and the same build is flagged at three seventy five pixels too.",
-          run: async (page) => {
+          run: async (page, cue) => {
             await hideDevBadge(page);
             await glide(page, page.getByText(/Drift score/));
-            await sleep(1500);
-            await click(page, page.getByRole("button", { name: /^Drift 1:/ }), 1800);
-            await click(page, byRole(page, "button", "Difference"), 2800);
-            await click(page, byRole(page, "button", "Side-by-side"), 2800);
-            await click(page, byRole(page, "button", "Overlay"), 1200);
+            await cue("The score jumps");
+            await click(page, page.getByRole("button", { name: /^Drift 1:/ }), 300);
+            await cue("Difference mode");
+            await click(page, byRole(page, "button", "Difference"), 300);
+            await cue("and the same build");
+            await click(page, byRole(page, "button", "Overlay"), 300);
+            await cue("three seventy five");
             await click(page, page.getByRole("group", { name: "Breakpoint (px)" }).getByRole("button", { name: "375" }), 3000);
-            await click(page, page.getByRole("group", { name: "Breakpoint (px)" }).getByRole("button", { name: "1440" }), 1500);
+            await click(page, page.getByRole("group", { name: "Breakpoint (px)" }).getByRole("button", { name: "1440" }), 800);
           },
         },
         {
@@ -264,18 +316,18 @@ const segments = [
             await page.goto(captureUrl(FIXED_BUILD, "1440"), { waitUntil: "domcontentloaded" });
             await page.getByRole("slider").waitFor({ timeout: 120000 });
             await hideDevBadge(page);
-            await sleep(800);
           },
         },
         {
           id: "recheck-result",
           text: "The score drops to near zero at desktop width, and only small typographic details remain. That is the loop: flag, fix, re-check, then sign off.",
-          run: async (page) => {
+          run: async (page, cue) => {
             await hideDevBadge(page);
             await glide(page, page.getByText(/Drift score/));
-            await sleep(2500);
-            await click(page, byRole(page, "button", "Difference"), 3000);
-            await click(page, byRole(page, "button", "Overlay"), 1500);
+            await cue("and only small");
+            await click(page, byRole(page, "button", "Difference"), 300);
+            await cue(1);
+            await click(page, byRole(page, "button", "Overlay"), 800);
           },
         },
       ]
@@ -313,26 +365,29 @@ const segments = [
   {
     id: "themes",
     text: "The interface follows light, dark or system themes with the same colour meaning on every screen: blue for design, amber for build, rose for drift, green for resolved. It also works on a phone.",
-    run: async (page) => {
+    run: async (page, cue) => {
       await page.goto(`${BASE}/board`, { waitUntil: "networkidle" });
-      await click(page, themeSwitch(page).getByRole("button", { name: "Light" }), 2500);
-      await click(page, themeSwitch(page).getByRole("button", { name: "Dark" }), 2000);
+      await cue("light, dark or system");
+      await click(page, themeSwitch(page).getByRole("button", { name: "Light" }), 300);
+      await cue("blue for design");
+      await click(page, themeSwitch(page).getByRole("button", { name: "Dark" }), 300);
+      await cue(1);
       await page.setViewportSize({ width: 375, height: 812 });
-      await sleep(2500);
+      await sleep(1800);
       await scrollBy(page, 500, 14);
-      await sleep(1500);
+      await sleep(1200);
       await page.setViewportSize({ width: 1280, height: 720 });
-      await sleep(800);
     },
   },
   {
     id: "closing",
     text: "The capture engine is built and tested; today I run it locally against preview URLs. The board, tickets and reports you saw run on Postgres on Deployxa, with encrypted variables and a health check, and the app itself is deployed on Deployxa.",
-    run: async (page) => {
-      await page.goto(`${BASE}/api/health`, { waitUntil: "networkidle" });
-      await sleep(3000);
+    run: async (page, cue) => {
       await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-      await sleep(2500);
+      await cue("The board, tickets");
+      await page.goto(`${BASE}/api/health`, { waitUntil: "networkidle" });
+      await cue("and the app itself");
+      await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
     },
   },
 ];
@@ -352,13 +407,15 @@ const t0 = Date.now();
 const timeline = [];
 let failed = null;
 try {
-  for (const seg of segments.filter((s) => !ONLY || ONLY.includes(s.id))) {
-    const startMs = Date.now() - t0 + SYNC_LAG_MS;
-    const voice = AUDIO ? speak(seg.id, seg.text) : { wav: null, ms: 0 };
-    const shownUntil = startMs + voice.ms + 600;
-    console.log(`▶ ${seg.id} (${(voice.ms / 1000).toFixed(1)}s narration)`);
-    await seg.run(page);
-    const wait = shownUntil - (Date.now() - t0 + SYNC_LAG_MS);
+  const plan = segments.filter((s) => !ONLY || ONLY.includes(s.id));
+  for (const seg of plan) {
+    const clock = () => Date.now() - t0 + SYNC_LAG_MS;
+    const startMs = clock();
+    const voice = AUDIO ? analyse(USE_OWN_VOICE ? ownTake(segments.indexOf(seg)) : speak(seg.id, seg.text).wav) : { wav: null, ms: 0, resumes: [] };
+    const shownUntil = startMs + LEAD_MS + voice.ms + 600;
+    console.log(`▶ ${seg.id} (${(voice.ms / 1000).toFixed(1)}s ${USE_OWN_VOICE ? "your voice" : "narration"})`);
+    await seg.run(page, makeCue(seg, voice, startMs, clock));
+    const wait = shownUntil - clock();
     if (wait > 0) await sleep(wait);
     timeline.push({ ...seg, ...voice, startMs });
   }
@@ -376,17 +433,20 @@ try {
   await browser.close();
 
   fs.copyFileSync(await video.path(), path.join(OUT, "demo-silent.webm"));
-  if (AUDIO && timeline.length) {
+  if (AUDIO && !USE_OWN_VOICE && timeline.length) {
     writeTimeline(timeline.map((s) => ({ wav: s.wav, startMs: s.startMs })), total, path.join(OUT, "narration.wav"));
     execFileSync("afconvert", ["-f", "m4af", "-d", "aac", path.join(OUT, "narration.wav"), path.join(OUT, "narration.m4a")]);
   }
+  fs.writeFileSync(path.join(OUT, "segments.json"), JSON.stringify(timeline.map(({ id, startMs, text }) => ({ id, startMs, text })), null, 2) + "\n");
   const mm = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
   fs.writeFileSync(
     path.join(OUT, "transcript.md"),
     [
       "# Drift Detector demo: narration transcript",
       "",
-      `Recorded against ${BASE}. Narration is synthetic (macOS voice "${VOICE}"), so read it in your own voice if you prefer.`,
+      USE_OWN_VOICE
+        ? `Recorded against ${BASE}. The narration is recorded voice; join it to the video with \`node scripts/voice.mjs mix\`.`
+        : `Recorded against ${BASE}. Narration is synthetic (macOS voice "${VOICE}"), so read it in your own voice if you prefer.`,
       "",
       ...timeline.map((s) => `**${mm(s.startMs)}** — ${s.text}\n`),
       "## Joining audio and video",
