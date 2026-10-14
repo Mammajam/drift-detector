@@ -1,10 +1,11 @@
 // Records a narrated walkthrough of Drift Detector with Playwright (browser only, no desktop capture).
 //
 //   node scripts/record-demo.mjs                       # read-only tour of the live site
-//   DEMO_PASSCODE=… node scripts/record-demo.mjs       # adds a signed-in segment (changes statuses, signs off a build!)
+//   DEMO_EMAIL=… DEMO_PASSWORD=… node scripts/record-demo.mjs   # adds a signed-in segment (changes statuses, signs off a build!)
 //
 // Env: BASE_URL, OUT_DIR (default demo-recording), VOICE (default Daniel), RATE (words/min, default 170),
-//      DEMO_NAME (approver name), NO_AUDIO=1 (video only).
+//      NO_AUDIO=1 (video only). The signed-in segment logs in with an existing account (e.g. the seeded SEED_DEMO_USER_* one);
+//      its name is the approver shown on the sign-off.
 // Output: demo-silent.webm, narration.wav/.m4a (timed to the video), transcript.md.
 // The narration is macOS text-to-speech; joining audio and video needs ffmpeg (see transcript.md).
 import { chromium } from "playwright";
@@ -16,8 +17,8 @@ const BASE = (process.env.BASE_URL ?? "https://drift-detector-app.deployxa.onlin
 const OUT = path.resolve(process.env.OUT_DIR ?? "demo-recording");
 const VOICE = process.env.VOICE ?? "Daniel";
 const RATE = process.env.RATE ?? "170";
-const PASSCODE = process.env.DEMO_PASSCODE; // never printed or logged
-const NAME = process.env.DEMO_NAME ?? "Demo reviewer";
+const EMAIL = process.env.DEMO_EMAIL;
+const PASSWORD = process.env.DEMO_PASSWORD; // never printed or logged
 const AUDIO = process.env.NO_AUDIO !== "1";
 // The real-capture segments run against the local app (a capture needs a browser on the server) and local builds of the preview targets.
 const LOCAL = (process.env.LOCAL_APP ?? "http://localhost:3001").replace(/\/$/, "");
@@ -279,17 +280,17 @@ const segments = [
         },
       ]
     : []),
-  ...(PASSCODE
+  ...(EMAIL && PASSWORD
     ? [
         {
           id: "signed-in",
           text: "Signed in, a designer or developer can change a drift's status, and approve a clean build.",
           run: async (page) => {
             await page.goto(`${BASE}/login?next=/board`, { waitUntil: "networkidle" });
-            await click(page, page.getByLabel("Your name"), 300);
-            await page.keyboard.type(NAME, { delay: 70 });
-            await click(page, page.getByLabel("Passcode"), 300);
-            await page.keyboard.type(PASSCODE, { delay: 70 }); // shown only as dots
+            await click(page, page.getByLabel("Email"), 300);
+            await page.keyboard.type(EMAIL, { delay: 70 });
+            await click(page, page.getByLabel("Password", { exact: true }), 300);
+            await page.keyboard.type(PASSWORD, { delay: 70 }); // shown only as dots
             await click(page, byRole(page, "button", "Sign in"), 1500);
             await page.waitForURL(/\/board$/);
             await click(page, page.getByRole("link", { name: /Sign-off report for \/checkout/ }), 1500);

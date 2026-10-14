@@ -3,6 +3,9 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   // Only in production, so local dev never touches a database unless you run `npm run db:migrate`.
   if (process.env.NODE_ENV !== "production") return;
+  if (!process.env.AUTH_SECRET) {
+    console.warn("[auth] AUTH_SECRET is not set: signup and login are disabled and the app is read-only.");
+  }
   const url = process.env.DATABASE_URL;
   if (!url || process.env.RUN_MIGRATIONS_ON_START === "0") return;
 
