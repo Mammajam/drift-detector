@@ -1,6 +1,6 @@
 import { createHmac, createHash, timingSafeEqual } from "node:crypto";
 
-export type Session = { name: string; exp: number };
+export type Session = { uid: string; name: string; exp: number };
 
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -8,8 +8,12 @@ const b64 = (value: string) => Buffer.from(value, "utf8").toString("base64url");
 const sign = (payload: string, secret: string) => createHmac("sha256", secret).update(payload).digest("base64url");
 
 /** `<base64url payload>.<hmac>`; the payload is readable but cannot be changed without the secret. */
-export function createSessionToken(name: string, secret: string, nowSeconds = Math.floor(Date.now() / 1000)): string {
-  const payload = b64(JSON.stringify({ name, exp: nowSeconds + SESSION_TTL_SECONDS } satisfies Session));
+export function createSessionToken(
+  user: { uid: string; name: string },
+  secret: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): string {
+  const payload = b64(JSON.stringify({ ...user, exp: nowSeconds + SESSION_TTL_SECONDS } satisfies Session));
   return `${payload}.${sign(payload, secret)}`;
 }
 
@@ -29,7 +33,9 @@ export function verifySessionToken(
 
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Session;
-    if (typeof session.name !== "string" || typeof session.exp !== "number") return null;
+    if (typeof session.uid !== "string" || typeof session.name !== "string" || typeof session.exp !== "number") {
+      return null;
+    }
     return session.exp > nowSeconds ? session : null;
   } catch {
     return null;

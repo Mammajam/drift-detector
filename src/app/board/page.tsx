@@ -25,9 +25,14 @@ function emptyAction(signedIn: boolean, canSignIn: boolean) {
   }
   if (canSignIn) {
     return (
-      <Link href="/login?next=/board" className={buttons.primary}>
-        Sign in to load demo data
-      </Link>
+      <>
+        <Link href="/signup?next=/board" className={buttons.primary}>
+          Create an account to load demo data
+        </Link>
+        <Link href="/login?next=/board" className={buttons.secondary}>
+          Sign in
+        </Link>
+      </>
     );
   }
   return undefined;
@@ -71,10 +76,10 @@ export default async function BoardPage() {
           {session ? (
             <p>Or load the demo project to explore the board, tickets and sign-off report.</p>
           ) : signInEnabled() ? (
-            <p>Sign in to load a small demo project, or to run captures.</p>
+            <p>Create an account or sign in to load a small demo project, or to run captures.</p>
           ) : (
             <p>
-              Sign-in isn&apos;t set up on this deployment, so demo data can&apos;t be loaded from here. Set{" "}
+              Accounts aren&apos;t set up on this deployment, so demo data can&apos;t be loaded from here. Set{" "}
               <code>SEED_DEMO_ON_START=1</code> and redeploy to load it on start.
             </p>
           )}

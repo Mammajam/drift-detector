@@ -83,7 +83,8 @@ export default async function ReportPage({ params }: { params: Promise<{ routeId
                 <SignOffForm routeId={route.id} previewUrl={latest.previewUrl} approver={session.name} />
               ) : (
                 <p>
-                  <Link href={`/login?next=/report/${route.id}`}>Sign in</Link> to approve this build.
+                  <Link href={`/login?next=/report/${route.id}`}>Sign in</Link> or{" "}
+                  <Link href={`/signup?next=/report/${route.id}`}>create an account</Link> to approve this build.
                 </p>
               )}
             </section>

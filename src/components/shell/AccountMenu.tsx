@@ -8,9 +8,14 @@ export async function AccountMenu() {
 
   if (!session) {
     return signInEnabled() ? (
-      <Link href="/login" className={styles.link}>
-        Sign in
-      </Link>
+      <div className={styles.account}>
+        <Link href="/login" className={styles.link}>
+          Sign in
+        </Link>
+        <Link href="/signup" className={styles.link}>
+          Sign up
+        </Link>
+      </div>
     ) : null;
   }
 

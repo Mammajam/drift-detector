@@ -47,7 +47,8 @@ Add as **encrypted** variables, for both Production and Preview environments.
 | `PREVIEW_HOST_SUFFIXES` | `.deployxa.online` | the capture worker refuses any other host (confirm the PR preview host also ends this way) |
 | `PROJECT_NAME` | optional, default `Drift Detector` | groups routes into a project |
 | `DB_POOL_MAX` | optional, default `5` | lower it if the managed Postgres has a small connection cap |
-| `APP_PASSCODE` | a passphrase you choose | **secret.** Enables sign-in. Without it, production stays read-only (nobody can change statuses, sign off or run captures) |
+| `AUTH_SECRET` | `openssl rand -base64 32` | **secret.** Signs session cookies and enables signup/login (accounts live in Postgres). Without it, production stays read-only (nobody can change statuses, sign off or run captures) |
+| `SEED_DEMO_USER_EMAIL`, `SEED_DEMO_USER_PASSWORD` | optional | Creates a shared reviewer account on start so judges can skip signup. Share the credentials in your submission, not in the repo |
 | `AUTH_SECRET` | long random string (`openssl rand -base64 32`) | **secret.** Signs session cookies. The name must use an **underscore**; `AUTH-SECRET` is ignored. Deployxa generates a new one on every deploy if you don't set your own, which signs everyone out. |
 | `CAPTURE_API_TOKEN` | optional long random string | **secret.** Lets CI call `POST /api/captures` with `Authorization: Bearer …` |
 | `SEED_DEMO_ON_START` | `1` (optional) | loads the demo project into an empty database on server start, so the board isn't empty for visitors |

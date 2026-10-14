@@ -26,7 +26,9 @@
 }
 
 .primary:disabled,
-.secondary:disabled {
+.secondary:disabled,
+.primary[aria-disabled="true"],
+.secondary[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.6;
 }

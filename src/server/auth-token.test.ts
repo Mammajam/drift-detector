@@ -6,22 +6,28 @@ const NOW = 1_800_000_000;
 
 describe("session tokens", () => {
   it("round-trips a session", () => {
-    const token = createSessionToken("Ada", SECRET, NOW);
-    expect(verifySessionToken(token, SECRET, NOW + 10)).toMatchObject({ name: "Ada" });
+    const token = createSessionToken({ uid: "u1", name: "Ada" }, SECRET, NOW);
+    expect(verifySessionToken(token, SECRET, NOW + 10)).toMatchObject({ uid: "u1", name: "Ada" });
   });
 
   it("rejects expired, tampered, wrong-secret and malformed tokens", () => {
-    const token = createSessionToken("Ada", SECRET, NOW);
+    const token = createSessionToken({ uid: "u1", name: "Ada" }, SECRET, NOW);
     expect(verifySessionToken(token, SECRET, NOW + 60 * 60 * 24 * 8)).toBeNull();
     expect(verifySessionToken(token, "other-secret", NOW)).toBeNull();
 
     const [payload, sig] = token.split(".");
-    const forged = Buffer.from(JSON.stringify({ name: "Admin", exp: NOW + 999999 })).toString("base64url");
+    const forged = Buffer.from(JSON.stringify({ uid: "u1", name: "Admin", exp: NOW + 999999 })).toString("base64url");
     expect(verifySessionToken(`${forged}.${sig}`, SECRET, NOW)).toBeNull();
     expect(verifySessionToken(`${payload}.`, SECRET, NOW)).toBeNull();
     expect(verifySessionToken("a.b.c", SECRET, NOW)).toBeNull();
     expect(verifySessionToken(undefined, SECRET, NOW)).toBeNull();
     expect(verifySessionToken("", SECRET, NOW)).toBeNull();
+  });
+
+  it("rejects a validly signed token that has no user id (old passcode-era cookies)", () => {
+    const payload = Buffer.from(JSON.stringify({ name: "Ada", exp: NOW + 100 })).toString("base64url");
+    const sig = createSessionToken({ uid: "x", name: "x" }, SECRET, NOW).split(".")[1];
+    expect(verifySessionToken(`${payload}.${sig}`, SECRET, NOW)).toBeNull();
   });
 });
 

@@ -1,32 +1,40 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { SESSION_TTL_SECONDS, createSessionToken, safeEqual, verifySessionToken, type Session } from "./auth-token";
+import { getDb, isDatabaseConfigured } from "./db";
+import { findUserById } from "./db/queries";
 
 export const SESSION_COOKIE = "dd_session";
 
-/** Locally, with no passcode configured, everything is open so development needs no setup. */
-const openForDev = () => !process.env.APP_PASSCODE && process.env.NODE_ENV !== "production";
+const secret = () => process.env.AUTH_SECRET || null;
 
-/** True when a passcode exists, so people can sign in. In production without APP_PASSCODE the app stays read-only. */
-export const signInEnabled = () => Boolean(process.env.APP_PASSCODE) || openForDev();
+/** Locally, with no AUTH_SECRET, everything is open so development needs no setup. */
+const openForDev = () => !secret() && process.env.NODE_ENV !== "production";
 
-const secret = () => process.env.AUTH_SECRET || process.env.APP_PASSCODE || null;
+/** True when accounts work: a signing secret and a database. In production without them the app stays read-only. */
+export const signInEnabled = () => Boolean(secret()) && isDatabaseConfigured();
 
-export const passcodeMatches = (input: string) => {
-  const expected = process.env.APP_PASSCODE;
-  return Boolean(expected) && safeEqual(input, expected!);
-};
-
-export async function getSession(): Promise<Session | null> {
+// cache(): the header and the page both ask, but the account is looked up once per request.
+export const getSession = cache(async (): Promise<Session | null> => {
   // Read cookies first, in every environment. Otherwise a build without secrets would prerender pages as static
-  // (the header calls this), and they would then fail at runtime once a passcode exists.
+  // (the header calls this), and they would then fail at runtime once a secret exists.
   const jar = await cookies();
-  if (openForDev()) return { name: "Local dev", exp: Number.MAX_SAFE_INTEGER };
+  if (openForDev()) return { uid: "local-dev", name: "Local dev", exp: Number.MAX_SAFE_INTEGER };
   const key = secret();
-  if (!key) return null;
-  return verifySessionToken(jar.get(SESSION_COOKIE)?.value, key);
-}
+  if (!key || !isDatabaseConfigured()) return null;
+
+  const session = verifySessionToken(jar.get(SESSION_COOKIE)?.value, key);
+  if (!session) return null;
+  try {
+    // Re-check the account so a deleted user loses access, and so the name is always current.
+    const user = await findUserById(getDb(), session.uid);
+    return user ? { ...session, name: user.name } : null;
+  } catch {
+    return null;
+  }
+});
 
 /** For server actions and protected pages: the session, or a redirect to /login. */
 export async function requireSession(next = "/"): Promise<Session> {
@@ -35,10 +43,10 @@ export async function requireSession(next = "/"): Promise<Session> {
   return session;
 }
 
-export async function startSession(name: string) {
+export async function startSession(user: { id: string; name: string }) {
   const key = secret();
   if (!key) throw new Error("Sign-in is not configured.");
-  (await cookies()).set(SESSION_COOKIE, createSessionToken(name, key), {
+  (await cookies()).set(SESSION_COOKIE, createSessionToken({ uid: user.id, name: user.name }, key), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

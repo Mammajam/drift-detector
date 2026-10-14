@@ -40,7 +40,8 @@ export function StatusForm({ ticketId, status, canEdit }: StatusFormProps) {
         </form>
       ) : (
         <p className={styles.hint}>
-          <Link href={`/login?next=/drifts/${ticketId}`}>Sign in</Link> to change the status.
+          <Link href={`/login?next=/drifts/${ticketId}`}>Sign in</Link> or{" "}
+          <Link href={`/signup?next=/drifts/${ticketId}`}>create an account</Link> to change the status.
         </p>
       )}
     </div>

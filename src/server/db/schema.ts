@@ -22,6 +22,15 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull(
 export const captureTheme = pgEnum("capture_theme", ["light", "dark"]);
 export const driftStatus = pgEnum("drift_status", ["open", "fixed", "wont_fix"]);
 
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Stored lowercased so the unique index is case-insensitive. */
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: createdAt(),
+});
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
@@ -101,6 +110,8 @@ export const signoffs = pgTable("signoffs", {
   captureId: uuid("capture_id")
     .notNull()
     .references(() => captures.id, { onDelete: "cascade" }),
+  /** Display-name snapshot, so reports keep working if the account is deleted. */
   approvedBy: text("approved_by").notNull(),
+  approvedByUserId: uuid("approved_by_user_id").references(() => users.id, { onDelete: "set null" }),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });

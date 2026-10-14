@@ -1,9 +1,23 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AnyDb } from "./captures-repo";
-import { getBoard, getReport, getTicket, isUuid, seedDemo, setDriftStatus, signOffBuild, SignOffBlocked } from "./queries";
+import {
+  EmailTaken,
+  SignOffBlocked,
+  createUser,
+  findUserByEmail,
+  findUserById,
+  getBoard,
+  getReport,
+  getTicket,
+  isUuid,
+  seedDemo,
+  setDriftStatus,
+  signOffBuild,
+} from "./queries";
 import * as schema from "./schema";
 
 const PROJECT = "Drift Detector";
@@ -91,5 +105,42 @@ describe("sign-off", () => {
   it("rejects an unknown build", async () => {
     const pricing = await routeByPath("/pricing");
     await expect(signOffBuild(db, pricing.id, "https://nope.deployxa.online/", "Ada")).rejects.toThrow(SignOffBlocked);
+  });
+});
+
+describe("users", () => {
+  const input = { email: "Ada@Example.com ", name: "Ada", passwordHash: "scrypt$x" };
+
+  it("creates an account with a lowercased email and finds it by email or id", async () => {
+    const user = await createUser(db, input);
+    expect(user.email).toBe("ada@example.com");
+    expect((await findUserByEmail(db, "ADA@example.com"))?.id).toBe(user.id);
+    expect((await findUserById(db, user.id))?.name).toBe("Ada");
+  });
+
+  it("refuses a duplicate email, whatever its case", async () => {
+    await createUser(db, input);
+    await expect(createUser(db, { ...input, email: "ada@example.com" })).rejects.toThrow(EmailTaken);
+  });
+
+  it("returns null for unknown emails and malformed ids", async () => {
+    expect(await findUserByEmail(db, "nobody@example.com")).toBeNull();
+    expect(await findUserById(db, "not-a-uuid")).toBeNull();
+  });
+
+  it("links a sign-off to the user and keeps the name if the account is deleted", async () => {
+    const user = await createUser(db, input);
+    const pricing = await routeByPath("/pricing");
+    // Fix every open drift in the newest build so sign-off is allowed.
+    const ticketIds = await db.select({ id: schema.drifts.id }).from(schema.drifts);
+    for (const { id } of ticketIds) await setDriftStatus(db, id, "fixed");
+    await signOffBuild(db, pricing.id, pricing.builds[0].previewUrl, "Ada", user.id);
+
+    const [row] = await db.select().from(schema.signoffs).where(eq(schema.signoffs.approvedByUserId, user.id));
+    expect(row.approvedBy).toBe("Ada");
+
+    await db.delete(schema.users).where(eq(schema.users.id, user.id));
+    const [kept] = await db.select().from(schema.signoffs).where(eq(schema.signoffs.id, row.id));
+    expect(kept).toMatchObject({ approvedBy: "Ada", approvedByUserId: null });
   });
 });

@@ -1,52 +1,59 @@
 "use client";
 
-import { useActionState } from "react";
+import Link from "next/link";
+import { useActionState, useEffect } from "react";
 import { signIn, type FormState } from "@/app/actions";
 import buttons from "@/components/ui/buttons.module.css";
 import styles from "./LoginForm.module.css";
+import { PasswordField } from "./PasswordField";
 
-export function LoginForm({ next, needsPasscode }: { next: string; needsPasscode: boolean }) {
+export function LoginForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(signIn, {});
+
+  // Move focus to the field the error is about, so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (state.error) document.getElementById(state.field ?? "email")?.focus();
+  }, [state.attempt, state.error, state.field]);
+  const nextQuery = next === "/" ? "" : `?next=${encodeURIComponent(next)}`;
 
   return (
     <form action={action} className={styles.form}>
       <input type="hidden" name="next" value={next} />
       <div className={styles.field}>
-        <label htmlFor="name">Your name</label>
+        <label htmlFor="email">Email</label>
         <input
-          id="name"
-          name="name"
-          type="text"
+          id="email"
+          name="email"
+          type="email"
           required
-          maxLength={60}
-          autoComplete="name"
-          defaultValue={state.name}
-          aria-invalid={state.error?.startsWith("Enter your name") ? true : undefined}
+          maxLength={254}
+          autoComplete="email"
+          defaultValue={state.email}
+          aria-invalid={state.field === "password" ? true : undefined}
           aria-describedby={state.error ? "login-error" : undefined}
         />
-        <p id="name-hint" className={styles.hint}>
-          Shown as the approver on sign-offs.
-        </p>
       </div>
-      {needsPasscode ? (
-        <div className={styles.field}>
-          <label htmlFor="passcode">Passcode</label>
-          <input
-            id="passcode"
-            name="passcode"
-            type="password"
-            required
-            autoComplete="current-password"
-            aria-invalid={state.error?.includes("passcode") ? true : undefined}
-            aria-describedby={state.error ? "login-error" : undefined}
-          />
-        </div>
-      ) : null}
-      <button type="submit" className={buttons.primary} disabled={pending}>
+      <PasswordField
+        id="password"
+        name="password"
+        label="Password"
+        autoComplete="current-password"
+        invalid={state.field === "password"}
+        describedBy={state.error ? "login-error" : undefined}
+      />
+      <p id="login-error" role="alert" className={styles.error}>
+        {state.error ? `Error: ${state.error}` : ""}
+      </p>
+      <button
+        type="submit"
+        className={buttons.primary}
+        aria-disabled={pending}
+        onClick={(event) => pending && event.preventDefault()}
+      >
         {pending ? "Signing in…" : "Sign in"}
       </button>
-      <p key={state.attempt} id="login-error" role="alert" className={styles.error}>
-        {state.error ?? ""}
+      <p className={styles.alt}>
+        New here? <Link href={`/signup${nextQuery}`}>Create an account</Link>
       </p>
     </form>
   );

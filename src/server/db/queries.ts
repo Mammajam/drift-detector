@@ -224,7 +224,13 @@ export async function getReport(db: AnyDb, projectName: string, routeId: string)
 }
 
 /** Records a sign-off for every capture of a build. Refused while any drift is still open. */
-export async function signOffBuild(db: AnyDb, routeId: string, previewUrl: string, approvedBy: string): Promise<number> {
+export async function signOffBuild(
+  db: AnyDb,
+  routeId: string,
+  previewUrl: string,
+  approvedBy: string,
+  approvedByUserId?: string,
+): Promise<number> {
   return db.transaction(async (tx) => {
     const captures = await tx
       .select({ id: schema.captures.id })
@@ -239,7 +245,9 @@ export async function signOffBuild(db: AnyDb, routeId: string, previewUrl: strin
     if (open.length > 0) throw new SignOffBlocked(`${open.length} drift(s) are still open.`);
 
     const at = new Date();
-    await tx.insert(schema.signoffs).values(captures.map((c) => ({ routeId, captureId: c.id, approvedBy, at })));
+    await tx
+      .insert(schema.signoffs)
+      .values(captures.map((c) => ({ routeId, captureId: c.id, approvedBy, approvedByUserId: approvedByUserId ?? null, at })));
     return captures.length;
   });
 }
@@ -275,4 +283,61 @@ export async function seedDemo(db: AnyDb, projectName: string): Promise<boolean>
     }
   }
   return true;
+}
+
+export type UserRow = { id: string; email: string; name: string; passwordHash: string };
+
+export class EmailTaken extends Error {
+  constructor() {
+    super("An account with that email already exists.");
+  }
+}
+
+/** Creates an account; the email is lowercased. Throws EmailTaken on a duplicate. */
+export async function createUser(
+  db: AnyDb,
+  input: { email: string; name: string; passwordHash: string },
+): Promise<UserRow> {
+  const email = input.email.trim().toLowerCase();
+  const [row] = await db
+    .insert(schema.users)
+    .values({ email, name: input.name, passwordHash: input.passwordHash })
+    .onConflictDoNothing({ target: schema.users.email })
+    .returning({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      passwordHash: schema.users.passwordHash,
+    });
+  if (!row) throw new EmailTaken();
+  return row;
+}
+
+export async function findUserByEmail(db: AnyDb, email: string): Promise<UserRow | null> {
+  const [row] = await db
+    .select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      passwordHash: schema.users.passwordHash,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.email, email.trim().toLowerCase()))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function findUserById(db: AnyDb, id: string): Promise<UserRow | null> {
+  if (!isUuid(id)) return null;
+  const [row] = await db
+    .select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      passwordHash: schema.users.passwordHash,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, id))
+    .limit(1);
+  return row ?? null;
 }
