@@ -1,7 +1,7 @@
 import "server-only";
 import type { Capture } from "@/lib/types";
 import { captureScreenshots, type ScreenshotJob, type Screenshotter } from "./capture";
-import { diffImages, regionsToDrifts } from "./diff";
+import { CAPTURE_DIFF, diffImages, regionsToDrifts } from "./diff";
 import { exportFrame, type FigmaExporter } from "./figma";
 import type { CaptureRequest } from "./request";
 import { previewUrlOptionsFromEnv, type PreviewUrlOptions } from "./url";
@@ -34,7 +34,7 @@ export async function runCaptures(
   for (const [index, job] of jobs.entries()) {
     const nodeId = request.figmaNodes[`${job.width}-${job.theme}`] ?? request.figmaNodeId;
     const design = await deps.exportFrame(request.figmaFileKey, nodeId);
-    const result = diffImages(design, builds[index]);
+    const result = diffImages(design, builds[index], CAPTURE_DIFF);
 
     captures.push({
       route: request.route,

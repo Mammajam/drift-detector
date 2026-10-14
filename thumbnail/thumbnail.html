@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Drift Detector — thumbnail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+  /* Tokens from src/app/tokens.css (light + dark). */
+  :root {
+    --canvas:#f6f8fb; --surface:#ffffff; --ink:#151a26; --muted:#5b6478; --line:#e2e6ee; --tint:#eef2fe;
+    --design:#2f5bea; --build:#e58a1f; --build-text:#9a5206; --drift:#d93f6e; --drift-strong:#c0305c; --drift-soft:#fbe7ee; --resolved:#1f8a5b;
+    --dots:#d5dbe7; --shadow:0 40px 90px -40px rgba(30,45,90,.45), 0 2px 0 rgba(255,255,255,.7) inset;
+    --glow-a:rgba(47,91,234,.10); --glow-b:rgba(217,63,110,.08);
+  }
+  [data-theme="dark"] {
+    --canvas:#10131b; --surface:#181c27; --ink:#eaedf4; --muted:#9aa3b6; --line:#2a3040; --tint:#1d2436;
+    --design:#7c9bff; --build:#f2a54a; --build-text:#f2a54a; --drift:#ff6f98; --drift-strong:#ff6f98; --drift-soft:#3a1e2a; --resolved:#4cc28d;
+    --dots:#232a3a; --shadow:0 40px 90px -40px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.04) inset;
+    --glow-a:rgba(124,155,255,.14); --glow-b:rgba(255,111,152,.10);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1500px; height: 1000px; overflow: hidden; }
+  body {
+    position: relative; font-family: "Figtree", system-ui, sans-serif; color: var(--ink); background: var(--canvas);
+    background-image:
+      radial-gradient(900px 700px at 88% 8%, var(--glow-a), transparent 60%),
+      radial-gradient(800px 600px at 0% 100%, var(--glow-b), transparent 60%),
+      radial-gradient(var(--dots) 1.4px, transparent 1.4px);
+    background-size: auto, auto, 28px 28px;
+  }
+  .brand { position: absolute; left: 96px; top: 92px; display: flex; align-items: center; gap: 16px; font: 600 30px/1 "Bricolage Grotesque"; letter-spacing: -.01em; }
+  .mark { position: relative; width: 30px; height: 30px; border-radius: 9px; background: var(--design); box-shadow: 11px 11px 0 -2px var(--build); }
+  .eyebrow { position: absolute; left: 96px; top: 226px; font: 600 20px/1 "JetBrains Mono"; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  h1 { position: absolute; left: 92px; top: 270px; width: 700px; font: 700 94px/1.04 "Bricolage Grotesque"; letter-spacing: -.025em; }
+  h1 em { font-style: normal; background: linear-gradient(transparent 62%, var(--drift-soft) 62%); padding: 0 6px; margin: 0 -6px; }
+  .sub { position: absolute; left: 96px; top: 640px; width: 600px; font: 400 31px/1.45 "Figtree"; color: var(--muted); }
+  .legend { position: absolute; left: 96px; top: 820px; display: flex; gap: 34px; font: 500 24px/1 "Figtree"; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 12px; }
+  .legend i { width: 16px; height: 16px; border-radius: 5px; background: var(--c); }
+  .legend .tear { width: 18px; height: 18px; border-radius: 50% 50% 50% 4px; }
+  .footer { position: absolute; left: 96px; bottom: 70px; display: flex; align-items: center; gap: 14px; font: 500 22px/1 "Figtree"; color: var(--muted); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--resolved); box-shadow: 0 0 0 5px color-mix(in srgb, var(--resolved) 22%, transparent); }
+
+  /* The visual: a design layer and a build layer, a few pixels apart. */
+  .stage { position: absolute; left: 808px; top: 118px; width: 600px; height: 764px; border-radius: 36px; background: var(--surface); border: 2px solid var(--line); box-shadow: var(--shadow); }
+  .chrome { position: absolute; left: 0; right: 0; top: 0; height: 64px; border-bottom: 2px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 26px; }
+  .chrome i { width: 13px; height: 13px; border-radius: 50%; background: var(--line); }
+  .chrome b { margin-left: auto; font: 600 17px/1 "JetBrains Mono"; color: var(--muted); }
+  .layer { position: absolute; border-radius: 26px; }
+  .design { left: 78px; top: 128px; width: 380px; height: 470px; background: var(--surface); border: 4px solid var(--design); padding: 40px; }
+  .build { left: 100px; top: 152px; width: 380px; height: 470px; background: color-mix(in srgb, var(--build) 10%, transparent); border: 4px solid var(--build); padding: 34px 36px; mix-blend-mode: normal; }
+  .design .label, .build .label { font: 600 17px/1 "JetBrains Mono"; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .design .price { margin-top: 22px; font: 700 96px/1 "Bricolage Grotesque"; letter-spacing: -.03em; color: var(--design); }
+  .design .price small { font: 500 26px/1 "Figtree"; color: var(--muted); letter-spacing: 0; }
+  .build .price { margin-top: 22px; font: 600 90px/1 "Bricolage Grotesque"; letter-spacing: -.03em; color: var(--build-text); opacity: .72; }
+  .build .price small { font: 500 26px/1 "Figtree"; color: var(--build-text); letter-spacing: 0; opacity: .8; }
+  .bars { margin-top: 40px; display: grid; gap: 16px; }
+  .bars i { display: block; height: 14px; border-radius: 7px; background: var(--line); }
+  .bars i:nth-child(1) { width: 86%; } .bars i:nth-child(2) { width: 70%; } .bars i:nth-child(3) { width: 78%; }
+  .btn { position: absolute; left: 40px; right: 40px; bottom: 38px; height: 62px; border-radius: 16px; background: var(--design); }
+  .build .btn { left: 36px; right: 36px; bottom: 30px; height: 56px; border-radius: 10px; background: color-mix(in srgb, var(--build) 70%, transparent); }
+  .region { position: absolute; left: 90px; top: 214px; width: 330px; height: 108px; border: 3px dashed var(--drift-strong); border-radius: 10px; background: color-mix(in srgb, var(--drift) 11%, transparent); }
+  .pin { position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50% 50% 50% 8px; background: var(--drift-strong); color: var(--surface); border: 4px solid var(--surface); display: grid; place-items: center; font: 700 26px/1 "JetBrains Mono"; box-shadow: 0 14px 30px -12px var(--drift); }
+  [data-theme="dark"] .pin { color: #10131b; }
+  .chip { position: absolute; display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-radius: 18px; background: var(--surface); border: 2px solid var(--line); box-shadow: 0 24px 50px -24px rgba(20,30,70,.45); font: 600 28px/1 "JetBrains Mono"; }
+  .chip .e { color: var(--design); } .chip .a { color: var(--build-text); } .chip .x { color: var(--muted); }
+  .chip .n { color: var(--drift-strong); font-size: 22px; }
+  .c1 { left: -98px; top: 92px; }
+  .c2 { left: 300px; top: 556px; }
+  .scorebar { position: absolute; left: 36px; right: 36px; bottom: 30px; height: 70px; border-radius: 22px; background: var(--tint); display: flex; align-items: center; gap: 12px; padding: 0 18px; font: 600 22px/1 "Figtree"; white-space: nowrap; }
+  .scorebar .arrow { color: var(--muted); font-weight: 500; }
+  .scorebar .step { color: var(--muted); font: 500 19px/1 "Figtree"; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 99px; background: var(--drift-strong); color: var(--surface); font: 600 20px/1 "Figtree"; }
+  [data-theme="dark"] .badge { color: #10131b; }
+  .scorebar .ok { display: inline-flex; align-items: center; gap: 8px; color: var(--resolved); font-size: 21px; }
+  .scorebar .ok::before { content: "✓"; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--resolved); color: var(--surface); font-size: 18px; }
+  [data-theme="dark"] .scorebar .ok::before { color: #10131b; }
+</style>
+</head>
+<body>
+  <div class="brand"><span class="mark"></span>Drift Detector</div>
+  <div class="eyebrow">Visual QA for preview builds</div>
+  <h1>Catch the gap between <em>design and build</em></h1>
+  <p class="sub">Overlay your Figma frame on every preview build. Every mismatch becomes a fix ticket with exact values.</p>
+  <div class="legend">
+    <span><i style="--c:var(--design)"></i>Design</span>
+    <span><i style="--c:var(--build)"></i>Build</span>
+    <span><i class="tear" style="--c:var(--drift-strong)"></i>Drift</span>
+    <span><i style="--c:var(--resolved)"></i>Resolved</span>
+  </div>
+  <div class="footer"><span class="dot"></span>Light · Dark · System &nbsp;·&nbsp; Built and deployed on Deployxa</div>
+
+  <div class="stage">
+    <div class="chrome"><i></i><i></i><i></i><b>/pricing · 375px</b></div>
+    <div class="layer design">
+      <div class="label">Pro plan</div>
+      <div class="price">$24<small> / month</small></div>
+      <div class="bars"><i></i><i></i><i></i></div>
+      <div class="btn"></div>
+    </div>
+    <div class="layer build">
+      <div class="label">Pro plan</div>
+      <div class="price">$24<small> / month</small></div>
+      <div class="bars" style="margin-top:34px"><i></i><i></i><i></i></div>
+      <div class="btn"></div>
+    </div>
+    <div class="region"></div>
+    <div class="pin" style="left:118px;top:262px">1</div>
+    <div class="pin" style="left:392px;top:410px">2</div>
+    <div class="pin" style="left:148px;top:600px">3</div>
+    <div class="chip c1"><span class="n">01</span><span class="e">700/34</span><span class="x">→</span><span class="a">600/32</span></div>
+    <div class="chip c2"><span class="n">03</span><span class="e">10·44</span><span class="x">→</span><span class="a">6·40</span></div>
+    <div class="scorebar"><span class="badge">◆ 3 drifts</span><span class="arrow">→</span><span class="step">fix · re-check</span><span class="arrow">→</span><span class="ok">Signed off</span></div>
+  </div>
+</body>
+</html>

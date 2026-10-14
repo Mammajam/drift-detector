@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makePng } from "./__fixtures__/png";
-import { diffImages, regionsToDrifts } from "./diff";
+import { CAPTURE_DIFF, diffImages, regionsToDrifts } from "./diff";
 
 const WHITE: [number, number, number] = [255, 255, 255];
 const BLUE: [number, number, number] = [47, 91, 234];
@@ -110,5 +110,58 @@ describe("regionsToDrifts", () => {
     });
     expect(drift.bbox).toEqual({ x: 0.1, y: 20 / 120, w: 0.5, h: 40 / 120 });
     expect(drift.label).toContain("100×40");
+  });
+});
+
+describe("tolerant comparison (CAPTURE_DIFF)", () => {
+  // Thin 1px strokes standing in for text: the same words, drawn 1px apart by different renderers.
+  const strokes = (dx: number) =>
+    Array.from({ length: 8 }, (_, i) => ({ x: 20 + dx, y: 20 + i * 6, w: 120, h: 1, color: [30, 30, 40] as [number, number, number] }));
+
+  it("flags sub-pixel text differences when comparing exact pixels, but not when tolerant", () => {
+    const design = makePng(200, 100, WHITE, strokes(0));
+    const build = makePng(200, 100, WHITE, strokes(1));
+    expect(diffImages(design, build).regions.length).toBeGreaterThan(0);
+    expect(diffImages(design, build, CAPTURE_DIFF).regions).toEqual([]);
+  });
+
+  it("still catches a real layout shift of several pixels", () => {
+    const design = makePng(300, 200, WHITE, [{ x: 40, y: 40, w: 160, h: 60, color: BLUE }]);
+    const build = makePng(300, 200, WHITE, [{ x: 40, y: 56, w: 160, h: 60, color: BLUE }]);
+    const { regions } = diffImages(design, build, CAPTURE_DIFF);
+    expect(regions.length).toBeGreaterThan(0);
+    expect(Math.min(...regions.map((r) => r.y))).toBeLessThanOrEqual(44);
+    expect(Math.max(...regions.map((r) => r.y + r.h))).toBeGreaterThanOrEqual(112);
+  });
+
+  it("keeps mean colours from the original pixels, not the blurred ones", () => {
+    const { regions } = diffImages(
+      makePng(200, 120, WHITE, card(BLUE)),
+      makePng(200, 120, WHITE, card(AMBER)),
+      CAPTURE_DIFF,
+    );
+    expect(regions[0].expectedColor).toMatch(/^#[0-9a-f]{6}$/);
+    expect(regions[0].expectedColor).not.toBe(regions[0].actualColor);
+  });
+
+  it("describes a moved block by how far it moved", () => {
+    const design = makePng(300, 200, WHITE, [{ x: 40, y: 40, w: 160, h: 60, color: BLUE }]);
+    const build = makePng(300, 200, WHITE, [{ x: 40, y: 56, w: 160, h: 60, color: BLUE }]);
+    const drifts = regionsToDrifts(diffImages(design, build, CAPTURE_DIFF));
+    expect(drifts.length).toBeGreaterThan(0);
+    for (const d of drifts) {
+      expect(d.label).toContain("Shifted 16px down");
+      const [ex, ey] = d.expected.split(",").map(Number);
+      const [ax, ay] = d.actual.split(",").map(Number);
+      expect([ax - ex, ay - ey]).toEqual([0, 16]);
+    }
+  });
+
+  it("keeps colours, not a shift, for a plain recolour", () => {
+    const [drift] = regionsToDrifts(
+      diffImages(makePng(200, 120, WHITE, card(BLUE)), makePng(200, 120, WHITE, card(AMBER)), CAPTURE_DIFF),
+    );
+    expect(drift.label).toContain("Mismatch");
+    expect(drift.expected).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

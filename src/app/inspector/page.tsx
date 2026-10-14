@@ -18,6 +18,17 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
+/** "1440-light:4:2,375-light:4:87" → { "1440-light": "4:2", "375-light": "4:87" } (a Figma frame per width and theme). */
+function nodeMap(raw: string | undefined): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  return Object.fromEntries(
+    raw
+      .split(",")
+      .filter(Boolean)
+      .map((pair) => [pair.slice(0, pair.indexOf(":")), pair.slice(pair.indexOf(":") + 1)]),
+  );
+}
+
 async function liveCaptures(params: SearchParams): Promise<Capture[]> {
   const csv = (v: string | string[] | undefined) => first(v)?.split(",").map((s) => s.trim());
   const request = parseCaptureRequest(
@@ -26,6 +37,7 @@ async function liveCaptures(params: SearchParams): Promise<Capture[]> {
       route: first(params.route) ?? "/",
       figmaFileKey: first(params.fileKey),
       figmaNodeId: first(params.nodeId),
+      figmaNodes: nodeMap(first(params.nodes)),
       breakpoints: csv(params.bp)?.map(Number),
       themes: csv(params.theme),
     },
@@ -49,7 +61,7 @@ async function storedCaptures(params: SearchParams): Promise<Capture[]> {
 type InspectorPageProps = {
   // ?state=loading | error | clean previews the other states with sample data.
   // ?source=db&route=/pricing[&build=<previewUrl>] shows the latest stored captures for a route (or one build of it).
-  // ?source=api&previewUrl=…&route=/pricing&fileKey=…&nodeId=12:34[&bp=375,768][&theme=light] runs a real capture.
+  // ?source=api&previewUrl=…&route=/pricing&fileKey=…&nodeId=12:34[&nodes=375-light:5:6,…][&bp=375,768][&theme=light] runs a real capture.
   searchParams: Promise<SearchParams>;
 };
 

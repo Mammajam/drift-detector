@@ -28,6 +28,8 @@
 
 .pane {
   display: grid;
+  /* without this the column grows to the frame's real width (e.g. 1440px) and nothing scales down */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin: 0;
   min-width: 0;
